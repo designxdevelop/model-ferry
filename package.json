@@ -1,0 +1,26 @@
+{
+  "name": "cursor-composer-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A persistent OpenAI-compatible bridge from OpenCode to Cursor Composer.",
+  "bin": {
+    "composer-bridge": "src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "setup": "node src/cli.mjs setup",
+    "status": "node src/cli.mjs status",
+    "uninstall": "node src/cli.mjs uninstall",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@cursor/sdk": "1.0.23"
+  },
+  "overrides": {
+    "undici": "6.27.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
