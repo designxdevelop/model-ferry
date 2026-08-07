@@ -81,7 +81,7 @@ export const onboardingPage = `<!doctype html>
     <span class="sep">&middot;</span>
     <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">GitHub</a>
   </div>
-  <div class="legalese">Cursor and all other trademarks are the property of their respective owners. Model Ferry is not affiliated with, sponsored, or endorsed by Anysphere, Inc. All rights reserved.</div>
+  <div class="legalese">Cursor, OpenCode, and all other trademarks are the property of their respective owners. Model Ferry is not affiliated with, sponsored, or endorsed by Anysphere, Inc. (Cursor) or Anomaly (OpenCode). All rights reserved.</div>
 </div>
 <script>
   const statusEl = document.getElementById("status");
