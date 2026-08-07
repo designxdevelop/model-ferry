@@ -42,6 +42,40 @@ const description =
 
     <Footer />
 
+    <script>
+      document.querySelectorAll("[data-copy]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.querySelector(button.dataset.copy);
+          if (!target) return;
+          const text = target.textContent.trim();
+          const done = () => {
+            const original = button.textContent;
+            button.textContent = "Copied";
+            button.disabled = true;
+            setTimeout(() => {
+              button.textContent = original;
+              button.disabled = false;
+            }, 1500);
+          };
+          try {
+            await navigator.clipboard.writeText(text);
+            done();
+          } catch {
+            try {
+              const range = document.createRange();
+              range.selectNodeContents(target);
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+              document.execCommand("copy");
+              selection.removeAllRanges();
+              done();
+            } catch {}
+          }
+        });
+      });
+    </script>
+
     <style is:global>
       :root {
         color-scheme: dark;
@@ -90,6 +124,9 @@ const description =
       .btn.primary:active { transform: translateY(1px); }
       .btn.ghost { border: 1px solid var(--line-strong); color: var(--text); }
       .btn.ghost:hover { border-color: #3a3a42; }
+      .copy { display: inline-flex; align-items: center; justify-content: center; font-family: "Inter", ui-sans-serif, sans-serif; font-size: 12px; font-weight: 600; color: var(--muted); background: none; border: 1px solid var(--line-strong); border-radius: 8px; padding: 4px 10px; cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease; }
+      .copy:hover { color: var(--text); border-color: #3a3a42; }
+      .copy:disabled { opacity: 0.6; cursor: default; }
       .container { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
       .section { padding: 96px 0; }
       .kicker { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(47, 129, 247, 0.25); padding: 6px 12px; border-radius: 999px; margin-bottom: 20px; }

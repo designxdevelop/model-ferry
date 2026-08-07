@@ -1,11 +1,5 @@
 ---
-const lines = [
-  ["$", "opencode run -m cursorapi/composer-2.5 --variant high-standard \\"],
-  [">", "    \"Refactor the auth module\""],
-  ["·", "reading catalog… 34 models · 331 variants"],
-  ["·", "cursorapi/composer-2.5 · high-standard · thinking"],
-  ["✓", "done — 12 files changed"]
-];
+const quick = `curl -fsSL https://raw.githubusercontent.com/designxdevelop/model-ferry/main/install.sh | bash`;
 ---
 <section class="hero">
   <div class="container">
@@ -17,18 +11,22 @@ const lines = [
         effort, context, and fast presets — into OpenCode as native variants.
       </p>
       <div class="cta">
-        <a class="btn primary" href="#install">Install Model Ferry</a>
+        <a class="btn primary" href="#install">Manual setup</a>
         <a class="btn ghost" href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">View on GitHub</a>
       </div>
     </div>
 
-    <div class="terminal" aria-hidden="true">
-      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="title">opencode</span></div>
-      <div class="body">
-        {lines.map(([prefix, text]) => (
-          <div class="row"><span class={"p " + (prefix === "$" ? "dollar" : prefix === "✓" ? "ok" : "")}>{prefix}</span><span>{text}</span></div>
-        ))}
+    <div class="terminal">
+      <div class="bar">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="title">install</span>
+        <button class="copy" data-copy="#hero-install" type="button">Copy</button>
       </div>
+      <div class="body">
+        <pre><span class="cmt"># install the bridge, sign in, and launch it</span>
+<span id="hero-install">{quick}</span></pre>
+      </div>
+      <p class="hint">Then pick the <strong>Cursor</strong> provider in OpenCode and choose a model.</p>
     </div>
   </div>
 </section>
@@ -59,11 +57,12 @@ const lines = [
   .bar .dot:nth-child(2) { background: #febc2e; }
   .bar .dot:nth-child(3) { background: #28c840; }
   .bar .title { margin-left: 8px; font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
-  .body { padding: 18px 20px; font-size: 13px; line-height: 2; font-family: "JetBrains Mono", monospace; color: #d7d7db; }
-  .row { white-space: pre-wrap; word-break: break-word; }
-  .p { display: inline-block; width: 22px; color: var(--faint); user-select: none; }
-  .p.dollar { color: var(--accent); }
-  .p.ok { color: #4ade80; }
+  .bar .copy { margin-left: auto; }
+  .body { padding: 20px; font-size: 13px; line-height: 1.8; font-family: "JetBrains Mono", monospace; color: #d7d7db; }
+  .body pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .body .cmt { color: var(--faint); }
+  .hint { margin: 0; padding: 0 20px 18px; color: var(--faint); font-size: 13px; line-height: 1.6; font-family: "Inter", ui-sans-serif, sans-serif; }
+  .hint strong { color: var(--muted); font-weight: 600; }
 
   @media (max-width: 860px) {
     .hero { padding: 80px 0 64px; }
