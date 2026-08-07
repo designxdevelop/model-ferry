@@ -1,5 +1,6 @@
 ---
-const quick = `curl -fsSL https://raw.githubusercontent.com/designxdevelop/model-ferry/main/install.sh | bash`;
+const variants = ["Fast", "Balanced", "High standard", "1M context"];
+const selected = "High standard";
 ---
 <section class="hero">
   <div class="container">
@@ -11,22 +12,31 @@ const quick = `curl -fsSL https://raw.githubusercontent.com/designxdevelop/model
         effort, context, and fast presets — into OpenCode as native variants.
       </p>
       <div class="cta">
-        <a class="btn primary" href="#install">Manual setup</a>
+        <a class="btn primary" href="#install">Install</a>
         <a class="btn ghost" href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">View on GitHub</a>
       </div>
+      <p class="hint">No special commands needed — the models just show up in OpenCode's picker.</p>
     </div>
 
-    <div class="terminal">
-      <div class="bar">
+    <div class="picker" aria-hidden="true">
+      <div class="pbar">
         <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        <span class="title">install</span>
-        <button class="copy" data-copy="#hero-install" type="button">Copy</button>
+        <span class="title">OpenCode &middot; model picker</span>
       </div>
-      <div class="body">
-        <pre><span class="cmt"># install the bridge, sign in, and launch it</span>
-<span id="hero-install">{quick}</span></pre>
+      <div class="pbody">
+        <div class="prow"><span class="k">Provider</span><span class="v">Cursor <span class="caret">&#9662;</span></span></div>
+        <div class="prow"><span class="k">Model</span><span class="v">Composer 2.5 <span class="caret">&#9662;</span></span></div>
+        <div class="prow"><span class="k">Variant</span><span class="v">High standard <span class="caret">&#9662;</span></span></div>
+        <div class="pmenu">
+          {variants.map((variant) => (
+            <div class={"popt" + (variant === selected ? " sel" : "")}>{variant}</div>
+          ))}
+        </div>
       </div>
-      <p class="hint">Then pick the <strong>Cursor</strong> provider in OpenCode and choose a model.</p>
+      <div class="pfoot">
+        <span><b>34 models</b> &middot; 331 variants</span>
+        <span class="sync"><span class="sync-dot"></span>auto-sync</span>
+      </div>
     </div>
   </div>
 </section>
@@ -47,22 +57,30 @@ const quick = `curl -fsSL https://raw.githubusercontent.com/designxdevelop/model
   .hero .container { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
   .inner h1 { font-size: clamp(42px, 6vw, 68px); font-weight: 700; }
   .inner h1 .accent { color: var(--accent); }
-  .lede { margin: 24px 0 32px; max-width: 520px; font-size: 18px; color: var(--muted); }
+  .lede { margin: 24px 0 28px; max-width: 520px; font-size: 18px; color: var(--muted); }
   .cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .hint { margin: 20px 0 0; font-size: 13px; color: var(--faint); }
 
-  .terminal { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; }
-  .bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .bar .dot { width: 10px; height: 10px; border-radius: 50%; background: #33333a; }
-  .bar .dot:nth-child(1) { background: #ff5f57; }
-  .bar .dot:nth-child(2) { background: #febc2e; }
-  .bar .dot:nth-child(3) { background: #28c840; }
-  .bar .title { margin-left: 8px; font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
-  .bar .copy { margin-left: auto; }
-  .body { padding: 20px; font-size: 13px; line-height: 1.8; font-family: "JetBrains Mono", monospace; color: #d7d7db; }
-  .body pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
-  .body .cmt { color: var(--faint); }
-  .hint { margin: 0; padding: 0 20px 18px; color: var(--faint); font-size: 13px; line-height: 1.6; font-family: "Inter", ui-sans-serif, sans-serif; }
-  .hint strong { color: var(--muted); font-weight: 600; }
+  .picker { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; }
+  .pbar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .pbar .dot { width: 10px; height: 10px; border-radius: 50%; background: #33333a; }
+  .pbar .dot:nth-child(1) { background: #ff5f57; }
+  .pbar .dot:nth-child(2) { background: #febc2e; }
+  .pbar .dot:nth-child(3) { background: #28c840; }
+  .pbar .title { margin-left: 8px; font-size: 12px; color: var(--faint); }
+  .pbody { padding: 6px 16px; }
+  .prow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .prow:last-of-type { border-bottom: none; }
+  .prow .k { color: var(--faint); font-size: 11px; font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .prow .v { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .prow .v .caret { color: var(--faint); font-size: 11px; }
+  .pmenu { margin: 12px 0 14px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: var(--card); }
+  .popt { padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--muted); }
+  .popt.sel { background: var(--accent-soft); color: var(--text); }
+  .pfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
+  .pfoot b { color: var(--muted); font-weight: 600; }
+  .sync { display: inline-flex; align-items: center; gap: 6px; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; }
 
   @media (max-width: 860px) {
     .hero { padding: 80px 0 64px; }
