@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { authStatus, ensureAuthenticated, login as browserLogin, logout as clearAuth } from "./auth.mjs";
+import { authStatus, login as browserLogin, logout as clearAuth } from "./auth.mjs";
 import {
   configPath,
   defaults,
@@ -29,16 +29,29 @@ else help();
 
 async function setup() {
   ensurePrivateDirectory();
-  const auth = await ensureAuthenticated();
   writePrivateFile(configPath, `${JSON.stringify(defaults, null, 2)}\n`);
+  const wasAuthenticated = (await authStatus()).status === "logged-in";
+  installLaunchAgent();
+  let auth = await authStatus();
+  if (auth.status !== "logged-in") {
+    console.log("Opening the Model Ferry setup page in your browser…");
+    console.log(`If it does not open, visit ${onboardUrl()}`);
+    try { execFileSync("/usr/bin/open", [onboardUrl()]); } catch {}
+    await waitForLogin();
+    auth = await authStatus();
+  }
   const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
   syncOpenCodeConfig(registry, defaults);
-  installLaunchAgent();
+  restartLaunchAgent();
   console.log(`Model Ferry installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
-  console.log(auth.via === "env"
-    ? "Authenticated via CURSOR_API_KEY."
-    : auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
+  if (!wasAuthenticated) {
+    console.log(auth.via === "env"
+      ? "Authenticated via CURSOR_API_KEY."
+      : auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
+  } else if (auth.via === "env") {
+    console.log("Authenticated via CURSOR_API_KEY.");
+  }
   if (auth.via === "env") {
     console.log("Note: the launchd agent does not inherit shell environment variables. If the bridge reports not authenticated, run `npm run login` once, or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`.");
   }
@@ -47,13 +60,54 @@ async function setup() {
 }
 
 async function login() {
-  const auth = await browserLogin();
+  const already = await authStatus();
+  if (already.status === "logged-in") {
+    await browserLogin();
+  } else if (await serverReachable()) {
+    console.log("Opening the Model Ferry setup page in your browser…");
+    console.log(`If it does not open, visit ${onboardUrl()}`);
+    try { execFileSync("/usr/bin/open", [onboardUrl()]); } catch {}
+    await waitForLogin();
+  } else {
+    await browserLogin();
+  }
+  const auth = await authStatus();
   const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
   syncOpenCodeConfig(registry, loadConfig());
   restartLaunchAgent();
-  console.log(auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
+  console.log(auth.via === "env"
+    ? "Authenticated via CURSOR_API_KEY."
+    : auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
   console.log(`Cursor catalog refreshed: ${registry.models.length} models, ${variantCount(registry)} variants.`);
+}
+
+async function waitForLogin() {
+  const deadline = Date.now() + 10 * 60 * 1000;
+  while (Date.now() < deadline) {
+    const status = await authStatus();
+    if (status.status === "logged-in") {
+      console.log(status.email ? `Signed in as ${status.email}.` : "Signed in with your Cursor account.");
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+  }
+  throw new Error(`Sign-in did not complete. Re-run \`npm run setup\` or visit ${onboardUrl()} to sign in.`);
+}
+
+async function serverReachable() {
+  try {
+    const config = loadConfig();
+    const response = await fetch(`http://${config.host}:${config.port}/health`);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+function onboardUrl() {
+  const config = loadConfig();
+  return `http://${config.host}:${config.port}/onboard`;
 }
 
 async function logout() {
@@ -88,8 +142,9 @@ function installLaunchAgent() {
 
 async function status() {
   const auth = await authStatus();
+  const expiry = auth.apiKeyExpiresAtMs ? ` (expires ${new Date(auth.apiKeyExpiresAtMs).toLocaleDateString()})` : "";
   console.log(`auth: ${auth.status === "logged-in"
-    ? `logged in${auth.via === "env" ? " (CURSOR_API_KEY)" : auth.email ? ` (${auth.email})` : ""}`
+    ? `logged in${auth.via === "env" ? " (CURSOR_API_KEY)" : auth.email ? ` (${auth.email})` : ""}${expiry}`
     : "logged out"}`);
   const config = loadConfig();
   try {

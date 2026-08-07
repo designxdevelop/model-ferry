@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import { Agent } from "@cursor/sdk";
+import { Agent, Cursor } from "@cursor/sdk";
 import crypto from "node:crypto";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { authStatus } from "./auth.mjs";
+import { authStatus, login as renewLogin, needsRenewal } from "./auth.mjs";
 import { loadConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
+import { onboardingPage } from "./onboard.mjs";
 import {
   completionEnvelope,
   normalizeModel,
@@ -26,6 +27,8 @@ let catalogState = null;
 let registry = { models: [], selections: new Map() };
 let lastRefreshError = null;
 let refreshInFlight = null;
+let authLoginInFlight = null;
+let lastAuthError = null;
 
 try {
   catalogState = await loadCatalog();
@@ -35,6 +38,7 @@ try {
 } catch (error) {
   lastRefreshError = error.message;
 }
+maybeRenewAuth().catch(() => {});
 
 const server = http.createServer((request, response) => {
   route(request, response).catch((error) => sendError(response, error));
@@ -57,11 +61,34 @@ async function route(request, response) {
       auth: {
         status: auth.status,
         ...(auth.via ? { via: auth.via } : {}),
-        ...(auth.email ? { email: auth.email } : {})
+        ...(auth.email ? { email: auth.email } : {}),
+        ...(auth.apiKeyExpiresAtMs ? { apiKeyExpiresAtMs: auth.apiKeyExpiresAtMs } : {}),
+        ...(authLoginInFlight ? { renewing: true } : {})
       },
       catalog: catalogState ? { ...catalogSummary(catalogState, registry), lastRefreshError } : null,
       sessions: sessions.size
     });
+  }
+  if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/onboard")) {
+    return html(response, 200, onboardingPage);
+  }
+  if (request.method === "GET" && url.pathname === "/v1/auth/status") {
+    const auth = await authStatus();
+    return json(response, 200, {
+      ...auth,
+      renewing: Boolean(authLoginInFlight),
+      lastAuthError,
+      ready: auth.status === "logged-in" && registry.models.length > 0,
+      catalog: catalogState ? catalogSummary(catalogState, registry) : null
+    });
+  }
+  if (request.method === "POST" && url.pathname === "/v1/auth/login") {
+    startAuthLogin();
+    return json(response, 200, { started: true });
+  }
+  if (request.method === "POST" && url.pathname === "/v1/auth/logout") {
+    await Cursor.auth.logout();
+    return json(response, 200, { ok: true });
   }
   if (request.method === "GET" && url.pathname === "/v1/models") {
     requireLocalAuth(request);
@@ -87,7 +114,7 @@ async function route(request, response) {
   }
   if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
     requireLocalAuth(request);
-    if (!(await authenticated())) throw httpError(503, "Cursor is not authenticated. Run `npm run setup` to sign in.", "not_authenticated");
+    await requireChatAuth();
     return chatCompletion(request, response, await readJson(request));
   }
   throw httpError(404, "Not found", "not_found");
@@ -261,8 +288,42 @@ function requireLocalAuth(request) {
   if (bearer(request) !== config.localToken) throw httpError(401, "Missing or invalid authorization", "unauthorized");
 }
 
-async function authenticated() {
-  return (await authStatus()).status === "logged-in";
+async function requireChatAuth() {
+  const auth = await authStatus();
+  if (auth.status !== "logged-in") {
+    throw httpError(503, `Your Cursor session is not signed in. Log back in from the Model Ferry setup page (http://${config.host}:${config.port}/onboard) or run \`modelferry login\`, then try again.`, "not_authenticated");
+  }
+  if (needsRenewal(auth, config.loginRenewMs)) {
+    try {
+      await renewLogin({ signal: AbortSignal.timeout(config.loginTimeoutMs) });
+      lastAuthError = null;
+      await refreshCatalog();
+    } catch (error) {
+      throw httpError(503, `Your Cursor session is expiring and the automatic renewal did not finish. Log back in from the Model Ferry setup page (http://${config.host}:${config.port}/onboard) or run \`modelferry login\`, then try again. (${error.message})`, "auth_renewal_failed");
+    }
+  }
+}
+
+function startAuthLogin() {
+  if (!authLoginInFlight) {
+    authLoginInFlight = performAuthLogin()
+      .catch((error) => { lastAuthError = error.message; })
+      .finally(() => { authLoginInFlight = null; });
+  }
+  return authLoginInFlight;
+}
+
+async function performAuthLogin() {
+  await renewLogin({ signal: AbortSignal.timeout(config.loginTimeoutMs) });
+  lastAuthError = null;
+  await refreshCatalog();
+}
+
+async function maybeRenewAuth() {
+  const auth = await authStatus();
+  if (!needsRenewal(auth, config.loginRenewMs)) return false;
+  await startAuthLogin();
+  return true;
 }
 
 function bearer(request) {
@@ -281,6 +342,11 @@ async function readJson(request) {
 function json(response, status, body) {
   response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(body));
+}
+
+function html(response, status, body) {
+  response.writeHead(status, { "content-type": "text/html; charset=utf-8" });
+  response.end(body);
 }
 
 function sendError(response, error) {
@@ -309,8 +375,13 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 
 if (config.catalogRefreshMs > 0) {
-  const refreshTimer = setInterval(() => refreshCatalog().catch((error) => {
-    console.error(`Model catalog refresh failed: ${error.message}`);
-  }), config.catalogRefreshMs);
+  const refreshTimer = setInterval(async () => {
+    try {
+      const renewed = await maybeRenewAuth();
+      if (!renewed) await refreshCatalog();
+    } catch (error) {
+      console.error(`Model catalog refresh failed: ${error.message}`);
+    }
+  }, config.catalogRefreshMs);
   refreshTimer.unref();
 }

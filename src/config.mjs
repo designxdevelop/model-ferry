@@ -16,6 +16,8 @@ export const defaults = {
   maxSessions: 64,
   requestTimeoutMs: 240_000,
   catalogRefreshMs: 6 * 60 * 60 * 1000,
+  loginRenewMs: 3 * 24 * 60 * 60 * 1000,
+  loginTimeoutMs: 5 * 60 * 1000,
   exposeVariantAliases: false
 };
 
