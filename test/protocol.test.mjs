@@ -1,13 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completionEnvelope, modelSelection, normalizeModel, parseTools, renderTranscript } from "../src/protocol.mjs";
+import { completionEnvelope, normalizeModel, parseTools, renderTranscript } from "../src/protocol.mjs";
 
-test("normalizes Composer aliases and fast variants", () => {
-  assert.equal(normalizeModel("cursorapi/composer-latest"), "composer-2.5");
-  assert.deepEqual(modelSelection("composer-2.5-fast"), {
-    id: "composer-2.5",
-    params: [{ id: "fast", value: "true" }]
-  });
+test("normalizes provider-qualified model identifiers", () => {
+  assert.equal(normalizeModel("cursorapi/GPT-5.6-Sol"), "gpt-5.6-sol");
 });
 
 test("parses OpenAI function tools into MCP tools", () => {

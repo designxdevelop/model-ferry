@@ -11,6 +11,8 @@
     "start": "node src/server.mjs",
     "setup": "node src/cli.mjs setup",
     "status": "node src/cli.mjs status",
+    "refresh": "node src/cli.mjs refresh",
+    "models": "node src/cli.mjs models",
     "uninstall": "node src/cli.mjs uninstall",
     "test": "node --test"
   },

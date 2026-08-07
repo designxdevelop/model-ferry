@@ -10,32 +10,35 @@ import {
   defaults,
   ensurePrivateDirectory,
   launchAgentPath,
+  loadConfig,
+  loadCursorApiKey,
   openCodeConfigPath,
   projectRoot,
   writePrivateFile
 } from "./config.mjs";
+import { buildRegistry, fetchCatalog, readCachedCatalog, syncOpenCodeConfig } from "./catalog.mjs";
 
 const command = process.argv[2] || "help";
 if (command === "setup") await setup();
 else if (command === "status") await status();
+else if (command === "refresh") await refresh();
+else if (command === "models") await models();
 else if (command === "uninstall") await uninstall();
 else help();
 
 async function setup() {
   ensurePrivateDirectory();
-  const existingDefault = readJson(openCodeConfigPath, {}).model;
-  const key = migrateKeychainKey();
+  const key = loadCursorApiKey() || migrateKeychainKey();
   if (!key) throw new Error("Could not read the existing API for Cursor key. Keep that app unlocked and rerun setup, or set CURSOR_API_KEY for this command.");
   writePrivateFile(credentialPath, `CURSOR_API_KEY=${key}\n`);
   writePrivateFile(configPath, `${JSON.stringify(defaults, null, 2)}\n`);
-  installOpenCodeProvider();
+  const state = await fetchCatalog(key);
+  const registry = buildRegistry(state.catalog);
+  syncOpenCodeConfig(registry, defaults);
   installLaunchAgent();
-  console.log("Composer Bridge installed and started.");
-  const forcedByOldApp = typeof existingDefault === "string" && existingDefault.startsWith("cursorapi/composer-");
-  console.log(forcedByOldApp
-    ? "Removed the default model forced by API for Cursor."
-    : `OpenCode default model preserved: ${existingDefault || "(none configured)"}`);
-  console.log("Select cursorapi/composer-2.5 or cursorapi/composer-2.5-fast only when you want it.");
+  console.log(`Composer Bridge installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
+  console.log("Your existing OpenCode default model was preserved.");
+  console.log("Select the Cursor Models provider in OpenCode, then choose a model and variant.");
 }
 
 function migrateKeychainKey() {
@@ -47,31 +50,6 @@ function migrateKeychainKey() {
   } catch {
     return "";
   }
-}
-
-function installOpenCodeProvider() {
-  const config = readJson(openCodeConfigPath, {});
-  if (typeof config.model === "string" && config.model.startsWith("cursorapi/composer-")) {
-    delete config.model;
-  }
-  config.provider ||= {};
-  config.provider.cursorapi = {
-    name: "Composer Bridge",
-    npm: "@ai-sdk/openai-compatible",
-    options: { baseURL: `http://${defaults.host}:${defaults.port}/v1`, apiKey: defaults.localToken },
-    models: Object.fromEntries(defaults.models.map((id) => [id, modelMetadata(id)]))
-  };
-  fs.mkdirSync(path.dirname(openCodeConfigPath), { recursive: true });
-  const backup = `${openCodeConfigPath}.composer-bridge-backup.${Date.now()}`;
-  if (fs.existsSync(openCodeConfigPath)) fs.copyFileSync(openCodeConfigPath, backup);
-  fs.writeFileSync(openCodeConfigPath, `${JSON.stringify(config, null, 2)}\n`);
-}
-
-function modelMetadata(id) {
-  return {
-    name: id.split("-").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ").replace("2.5", "2.5").replace("4.5", "4.5"),
-    limit: { context: 200000, output: 65536 }
-  };
 }
 
 function installLaunchAgent() {
@@ -100,13 +78,56 @@ function installLaunchAgent() {
 }
 
 async function status() {
+  const config = loadConfig();
   try {
-    const response = await fetch(`http://${defaults.host}:${defaults.port}/health`);
+    const response = await fetch(`http://${config.host}:${config.port}/health`);
     console.log(JSON.stringify(await response.json(), null, 2));
   } catch {
     console.error("Composer Bridge is not responding.");
     process.exitCode = 1;
   }
+}
+
+async function refresh() {
+  const config = loadConfig();
+  try {
+    const response = await fetch(`http://${config.host}:${config.port}/v1/catalog/refresh`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${config.localToken}` }
+    });
+    if (!response.ok) throw new Error(`bridge returned ${response.status}`);
+    const body = await response.json();
+    console.log(`Cursor catalog refreshed: ${body.catalog.models} models, ${body.catalog.variants} variants${body.changed ? " (updated)" : " (unchanged)"}.`);
+    return;
+  } catch {}
+  const key = loadCursorApiKey();
+  if (!key) throw new Error("Cursor API key is not configured. Run: npm run setup");
+  const state = await fetchCatalog(key);
+  const registry = buildRegistry(state.catalog);
+  const result = syncOpenCodeConfig(registry, config);
+  restartLaunchAgent();
+  console.log(`Cursor catalog refreshed: ${registry.models.length} models, ${variantCount(registry)} variants${result.changed ? " (updated)" : " (unchanged)"}.`);
+  console.log("The bridge was restarted. Reload OpenCode if its model picker is already open.");
+}
+
+async function models() {
+  let state = readCachedCatalog();
+  if (!state) {
+    const key = loadCursorApiKey();
+    if (!key) throw new Error("No cached catalog is available. Run: npm run setup");
+    state = await fetchCatalog(key);
+  }
+  const registry = buildRegistry(state.catalog);
+  console.log(`${registry.models.length} models, ${variantCount(registry)} variants (fetched ${state.fetchedAt})`);
+  for (const model of registry.models) {
+    console.log(`${model.id} — ${model.variants.map((variant) => variant.id).join(", ")}`);
+  }
+}
+
+function restartLaunchAgent() {
+  if (!fs.existsSync(launchAgentPath)) return;
+  const domain = `gui/${process.getuid()}`;
+  try { execFileSync("/bin/launchctl", ["kickstart", "-k", `${domain}/ai.dxd.cursor-composer-bridge`]); } catch {}
 }
 
 async function uninstall() {
@@ -130,5 +151,9 @@ function xml(value) {
 }
 
 function help() {
-  console.log("Usage: composer-bridge <setup|status|uninstall>");
+  console.log("Usage: composer-bridge <setup|status|refresh|models|uninstall>");
+}
+
+function variantCount(registry) {
+  return registry.models.reduce((total, model) => total + model.variants.length, 0);
 }

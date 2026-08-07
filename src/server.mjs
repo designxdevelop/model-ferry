@@ -5,9 +5,9 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfig, loadCursorApiKey } from "./config.mjs";
+import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
 import {
   completionEnvelope,
-  modelSelection,
   normalizeModel,
   openAiToolCall,
   parseTools,
@@ -22,6 +22,21 @@ const sessions = new Map();
 const captures = new Map();
 const callbackToken = crypto.randomBytes(24).toString("hex");
 const forwarderPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "mcp-forwarder.mjs");
+let catalogState = null;
+let registry = { models: [], selections: new Map() };
+let lastRefreshError = null;
+let refreshInFlight = null;
+
+if (cursorApiKey) {
+  try {
+    catalogState = await loadCatalog(cursorApiKey);
+    registry = buildRegistry(catalogState.catalog);
+    syncOpenCodeConfig(registry, config);
+    lastRefreshError = catalogState.error || null;
+  } catch (error) {
+    lastRefreshError = error.message;
+  }
+}
 
 const server = http.createServer((request, response) => {
   route(request, response).catch((error) => sendError(response, error));
@@ -35,11 +50,11 @@ async function route(request, response) {
   const url = new URL(request.url || "/", `http://${request.headers.host || `${config.host}:${config.port}`}`);
   if (request.method === "GET" && (url.pathname === "/health" || url.pathname === "/v1/health")) {
     return json(response, 200, {
-      ok: Boolean(cursorApiKey),
-      ready: Boolean(cursorApiKey),
+      ok: Boolean(cursorApiKey && registry.models.length),
+      ready: Boolean(cursorApiKey && registry.models.length),
       service: "Composer Bridge",
-      status: cursorApiKey ? "ready" : "missing_cursor_api_key",
-      models: config.models,
+      status: !cursorApiKey ? "missing_cursor_api_key" : registry.models.length ? "ready" : "missing_model_catalog",
+      catalog: catalogState ? { ...catalogSummary(catalogState, registry), lastRefreshError } : null,
       sessions: sessions.size
     });
   }
@@ -47,8 +62,15 @@ async function route(request, response) {
     requireLocalAuth(request);
     return json(response, 200, {
       object: "list",
-      data: config.models.map((id) => ({ id, object: "model", created: 0, owned_by: "cursor" }))
+      data: Object.entries(providerModels(registry, { exposeVariantAliases: config.exposeVariantAliases })).map(([id, metadata]) => ({
+        id, object: "model", created: 0, owned_by: "cursor", name: metadata.name
+      }))
     });
+  }
+  if (request.method === "POST" && url.pathname === "/v1/catalog/refresh") {
+    requireLocalAuth(request);
+    const result = await refreshCatalog();
+    return json(response, 200, { ok: true, changed: result.changed, catalog: catalogSummary(catalogState, registry) });
   }
   if (request.method === "POST" && url.pathname === "/internal/tool-capture") {
     if (bearer(request) !== callbackToken) throw httpError(401, "Invalid callback token", "unauthorized");
@@ -68,10 +90,11 @@ async function route(request, response) {
 
 async function chatCompletion(request, response, body) {
   const model = normalizeModel(body.model);
-  if (!config.models.includes(model)) throw httpError(400, `Unsupported model: ${model}`, "unsupported_model");
+  const selection = resolveSelection(registry, model, body);
+  if (!selection) throw httpError(400, `Unsupported model or variant: ${model}`, "unsupported_model");
   const tools = parseTools(body);
-  const sessionKey = `${requestSessionKey(request, body)}\0${model}\0${workingDirectory(request)}`;
-  const session = await getSession(sessionKey, model, workingDirectory(request));
+  const sessionKey = `${requestSessionKey(request, body)}\0${JSON.stringify(selection)}\0${workingDirectory(request)}`;
+  const session = await getSession(sessionKey, selection, workingDirectory(request));
   const prompt = renderTranscript(body.messages || [], tools);
   const captureId = crypto.randomUUID();
   let capturedTool = null;
@@ -99,7 +122,7 @@ async function chatCompletion(request, response, body) {
   const timeout = AbortSignal.timeout(config.requestTimeoutMs);
   try {
     const runPromise = session.agent.send(prompt, {
-      model: modelSelection(model),
+      model: selection,
       ...(mcpServers ? { mcpServers } : {}),
       ...(session.force ? { local: { force: true } } : {}),
       idempotencyKey: crypto.randomUUID()
@@ -175,12 +198,12 @@ async function streamRun(response, run, model, captureId, capturedTool, session)
   }
 }
 
-async function getSession(key, model, cwd) {
+async function getSession(key, selection, cwd) {
   const existing = sessions.get(key);
   if (existing) return existing;
   const agent = await Agent.create({
     apiKey: cursorApiKey,
-    model: modelSelection(model),
+    model: selection,
     name: "OpenCode Composer Bridge",
     local: { cwd, settingSources: [] }
   });
@@ -188,6 +211,32 @@ async function getSession(key, model, cwd) {
   sessions.set(key, session);
   evictSessions();
   return session;
+}
+
+async function refreshCatalog() {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = performCatalogRefresh();
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
+}
+
+async function performCatalogRefresh() {
+  try {
+    const nextState = await fetchCatalog(cursorApiKey);
+    const nextRegistry = buildRegistry(nextState.catalog);
+    const catalogChanged = JSON.stringify(catalogState?.catalog) !== JSON.stringify(nextState.catalog);
+    const configResult = syncOpenCodeConfig(nextRegistry, config);
+    catalogState = nextState;
+    registry = nextRegistry;
+    lastRefreshError = null;
+    return { changed: catalogChanged || configResult.changed };
+  } catch (error) {
+    lastRefreshError = error.message;
+    throw error;
+  }
 }
 
 function touchSession(key, session) {
@@ -249,4 +298,11 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
     for (const { agent } of sessions.values()) try { agent.close(); } catch {}
     process.exit(0);
   });
+}
+
+if (cursorApiKey && config.catalogRefreshMs > 0) {
+  const refreshTimer = setInterval(() => refreshCatalog().catch((error) => {
+    console.error(`Model catalog refresh failed: ${error.message}`);
+  }), config.catalogRefreshMs);
+  refreshTimer.unref();
 }

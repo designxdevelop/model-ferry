@@ -6,6 +6,7 @@ export const projectRoot = path.resolve(path.dirname(new URL(import.meta.url).pa
 export const configDir = path.join(os.homedir(), ".config", "cursor-composer-bridge");
 export const configPath = path.join(configDir, "config.json");
 export const credentialPath = path.join(configDir, "credentials");
+export const catalogPath = path.join(configDir, "catalog.json");
 export const launchAgentPath = path.join(os.homedir(), "Library", "LaunchAgents", "ai.dxd.cursor-composer-bridge.plist");
 export const openCodeConfigPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
 
@@ -15,7 +16,8 @@ export const defaults = {
   localToken: "cursor-local",
   maxSessions: 64,
   requestTimeoutMs: 240_000,
-  models: ["composer-2.5", "composer-2.5-fast", "grok-4.5", "grok-4.5-fast"]
+  catalogRefreshMs: 6 * 60 * 60 * 1000,
+  exposeVariantAliases: false
 };
 
 export function loadConfig() {
@@ -50,6 +52,8 @@ export function ensurePrivateDirectory() {
 
 export function writePrivateFile(file, content) {
   ensurePrivateDirectory();
-  fs.writeFileSync(file, content, { mode: 0o600 });
+  const temporary = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temporary, content, { mode: 0o600 });
+  fs.renameSync(temporary, file);
   fs.chmodSync(file, 0o600);
 }

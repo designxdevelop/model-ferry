@@ -3,22 +3,7 @@ import crypto from "node:crypto";
 export function normalizeModel(value = "") {
   const raw = String(value).trim();
   const id = raw.toLowerCase().split("/").filter(Boolean).at(-1) || "composer-2.5";
-  if (["composer", "composer-latest", "composer-2-5", "composer-2.5-sdk"].includes(id)) return "composer-2.5";
-  if (id === "composer-2-5-fast") return "composer-2.5-fast";
-  if (id === "grok-4-5") return "grok-4.5";
-  if (id === "grok-4-5-fast") return "grok-4.5-fast";
   return id;
-}
-
-export function modelSelection(value) {
-  const id = normalizeModel(value);
-  if (id === "composer-2.5" || id === "composer-2.5-fast") {
-    return { id: "composer-2.5", params: [{ id: "fast", value: String(id.endsWith("-fast")) }] };
-  }
-  if (id === "grok-4.5" || id === "grok-4.5-fast") {
-    return { id: "grok-4.5", params: [{ id: "fast", value: String(id.endsWith("-fast")) }] };
-  }
-  return { id };
 }
 
 export function requestSessionKey(request, body) {
