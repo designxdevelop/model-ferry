@@ -31,9 +31,10 @@ export const onboardingPage = `<!doctype html>
   button:disabled { opacity: 0.5; cursor: default; }
   .meta { color: #8a8a92; font-size: 13px; line-height: 1.6; margin-top: 16px; }
   .meta b { color: #f2f2f3; font-weight: 600; }
-  .foot { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 24px; font-size: 12px; color: #6a6a72; }
+  .foot { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-top: 24px; font-size: 12px; color: #6a6a72; }
   .foot a { color: #8a8a92; text-decoration: none; }
   .foot a:hover { color: #f2f2f3; }
+  .legalese { text-align: center; margin-top: 10px; font-size: 10px; line-height: 1.6; color: #4c4c52; }
 </style>
 </head>
 <body>
@@ -54,7 +55,12 @@ export const onboardingPage = `<!doctype html>
     <button class="ghost" id="logout" hidden>Sign out</button>
     <div class="meta" id="meta"></div>
   </div>
-  <div class="foot">Built by <a href="https://designxdevelop.com" target="_blank" rel="noopener">designxdevelop.com</a></div>
+  <div class="foot">
+    <span>Built by <a href="https://designxdevelop.com" target="_blank" rel="noopener">Design X Develop</a></span>
+    <span class="sep">&middot;</span>
+    <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">GitHub</a>
+  </div>
+  <div class="legalese">Cursor and all other trademarks are the property of their respective owners. Model Ferry is not affiliated with, sponsored, or endorsed by Anysphere, Inc. All rights reserved.</div>
 </div>
 <script>
   const statusEl = document.getElementById("status");

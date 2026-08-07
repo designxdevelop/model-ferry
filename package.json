@@ -3,7 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "license": "MIT",
   "description": "A persistent OpenAI-compatible bridge that ferries Cursor's model catalog into OpenCode.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/designxdevelop/model-ferry.git"
+  },
+  "homepage": "https://github.com/designxdevelop/model-ferry",
   "bin": {
     "modelferry": "src/cli.mjs"
   },
