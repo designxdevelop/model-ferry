@@ -2,11 +2,11 @@
 const faqs = [
   {
     q: "Do I need a Cursor subscription?",
-    a: "The catalog reflects what your Cursor account can use. Cursor subscription limits, model eligibility, and usage accounting still apply — Model Ferry just makes those models selectable in OpenCode."
+    a: "The catalog reflects what your Cursor account can use. Cursor subscription limits, model eligibility, and usage accounting still apply. Model Ferry only makes those models selectable in OpenCode."
   },
   {
     q: "Where is my Cursor credential stored?",
-    a: "Model Ferry stores nothing. The browser sign-in mints a 90-day API key that the Cursor SDK keeps in ~/.cursor/sdk/auth.json, readable only by your user. It auto-renews before expiry; you can also set CURSOR_API_KEY to skip the browser flow entirely."
+    a: "Model Ferry stores nothing. The browser sign-in mints a 90-day API key that the Cursor SDK keeps in ~/.cursor/sdk/auth.json, readable only by your user. It auto-renews before expiry. Set CURSOR_API_KEY to skip the browser flow."
   },
   {
     q: "Is Model Ferry affiliated with Cursor or Anysphere?",
@@ -18,7 +18,7 @@ const faqs = [
   },
   {
     q: "Is anything sent off my machine?",
-    a: "Only your model prompts. As with any Cursor agent run, prompts and tool activity are sent to Cursor's servers (Anysphere) for model inference — the Cursor SDK client and agent loop are what run locally. The bridge itself has no telemetry or analytics and never reports to anyone else, and the local HTTP API binds to 127.0.0.1."
+    a: "Only your model prompts. As with any Cursor agent run, prompts and tool activity are sent to Cursor's servers (Anysphere) for model inference. The Cursor SDK client and agent loop run locally. The bridge has no telemetry or analytics, and the local HTTP API binds to 127.0.0.1."
   },
   {
     q: "What if the default port is taken?",
@@ -29,7 +29,7 @@ const faqs = [
 <section class="section" id="faq">
   <div class="container narrow">
     <span class="kicker">FAQ</span>
-    <h2 class="heading">Questions, answered.</h2>
+    <h2 class="heading">Frequently asked questions.</h2>
     <div class="list">
       {faqs.map((item) => (
         <details class="item">

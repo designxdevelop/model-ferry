@@ -2,15 +2,15 @@
 const features = [
   {
     title: "Full catalog sync",
-    body: "Every model and parameter combination available to your Cursor account — discovered through the Cursor Agent SDK and refreshed on a schedule."
+    body: "Every model and parameter combination available to your Cursor account, discovered through the Cursor Agent SDK and refreshed on a schedule."
   },
   {
     title: "Native variants",
-    body: "Cursor's exact thinking, reasoning, effort, context, and fast presets surface as OpenCode variants, switchable from the picker or --variant."
+    body: "Cursor's exact thinking, reasoning, effort, context, and fast presets appear as OpenCode variants, switchable from the picker or --variant."
   },
   {
     title: "Zero-credential setup",
-    body: "A one-time browser sign-in mints a 90-day key. The bridge renews it automatically before it lapses — no API-key vaulting on your part."
+    body: "A one-time browser sign-in mints a 90-day key. The bridge renews it automatically before it lapses, so you never handle API keys."
   },
   {
     title: "Background launch agent",
@@ -21,16 +21,16 @@ const features = [
     body: "The HTTP API binds to 127.0.0.1 and requires a local bearer token. Nothing else on your network can reach it."
   },
   {
-    title: "Tools that just work",
-    body: "OpenCode function tools are bridged to Cursor agents through a temporary MCP server, and results are returned to OpenCode for execution."
+    title: "Function tools",
+    body: "The bridge exposes OpenCode function tools to Cursor agents through a temporary MCP server and returns the results to OpenCode for execution."
   }
 ];
 ---
 <section class="section" id="features">
   <div class="container">
     <span class="kicker">Features</span>
-    <h2 class="heading">The bridge between two great tools.</h2>
-    <p class="sub">No key wrangling, no duplicated prompts, no extra services to run.</p>
+    <h2 class="heading">Cursor's catalog, native in OpenCode.</h2>
+    <p class="sub">Point it at your Cursor account. Models and variants show up in the picker.</p>
     <div class="grid">
       {features.map((feature) => (
         <div class="card">
