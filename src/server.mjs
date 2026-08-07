@@ -4,7 +4,8 @@ import crypto from "node:crypto";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, loadCursorApiKey } from "./config.mjs";
+import { authStatus } from "./auth.mjs";
+import { loadConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
 import {
   completionEnvelope,
@@ -17,7 +18,6 @@ import {
 } from "./protocol.mjs";
 
 const config = loadConfig();
-const cursorApiKey = loadCursorApiKey();
 const sessions = new Map();
 const captures = new Map();
 const callbackToken = crypto.randomBytes(24).toString("hex");
@@ -27,15 +27,13 @@ let registry = { models: [], selections: new Map() };
 let lastRefreshError = null;
 let refreshInFlight = null;
 
-if (cursorApiKey) {
-  try {
-    catalogState = await loadCatalog(cursorApiKey);
-    registry = buildRegistry(catalogState.catalog);
-    syncOpenCodeConfig(registry, config);
-    lastRefreshError = catalogState.error || null;
-  } catch (error) {
-    lastRefreshError = error.message;
-  }
+try {
+  catalogState = await loadCatalog();
+  registry = buildRegistry(catalogState.catalog);
+  syncOpenCodeConfig(registry, config);
+  lastRefreshError = catalogState.error || null;
+} catch (error) {
+  lastRefreshError = error.message;
 }
 
 const server = http.createServer((request, response) => {
@@ -49,11 +47,18 @@ server.listen(config.port, config.host, () => {
 async function route(request, response) {
   const url = new URL(request.url || "/", `http://${request.headers.host || `${config.host}:${config.port}`}`);
   if (request.method === "GET" && (url.pathname === "/health" || url.pathname === "/v1/health")) {
+    const auth = await authStatus();
+    const authenticated = auth.status === "logged-in";
     return json(response, 200, {
-      ok: Boolean(cursorApiKey && registry.models.length),
-      ready: Boolean(cursorApiKey && registry.models.length),
+      ok: authenticated && registry.models.length > 0,
+      ready: authenticated && registry.models.length > 0,
       service: "Model Ferry",
-      status: !cursorApiKey ? "missing_cursor_api_key" : registry.models.length ? "ready" : "missing_model_catalog",
+      status: !authenticated ? "not_authenticated" : registry.models.length ? "ready" : "missing_model_catalog",
+      auth: {
+        status: auth.status,
+        ...(auth.via ? { via: auth.via } : {}),
+        ...(auth.email ? { email: auth.email } : {})
+      },
       catalog: catalogState ? { ...catalogSummary(catalogState, registry), lastRefreshError } : null,
       sessions: sessions.size
     });
@@ -82,7 +87,7 @@ async function route(request, response) {
   }
   if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
     requireLocalAuth(request);
-    if (!cursorApiKey) throw httpError(503, "Cursor API key is not configured. Run: npm run setup", "missing_cursor_api_key");
+    if (!(await authenticated())) throw httpError(503, "Cursor is not authenticated. Run `npm run setup` to sign in.", "not_authenticated");
     return chatCompletion(request, response, await readJson(request));
   }
   throw httpError(404, "Not found", "not_found");
@@ -202,7 +207,6 @@ async function getSession(key, selection, cwd) {
   const existing = sessions.get(key);
   if (existing) return existing;
   const agent = await Agent.create({
-    apiKey: cursorApiKey,
     model: selection,
     name: "OpenCode Model Ferry",
     local: { cwd, settingSources: [] }
@@ -225,7 +229,7 @@ async function refreshCatalog() {
 
 async function performCatalogRefresh() {
   try {
-    const nextState = await fetchCatalog(cursorApiKey);
+    const nextState = await fetchCatalog();
     const nextRegistry = buildRegistry(nextState.catalog);
     const catalogChanged = JSON.stringify(catalogState?.catalog) !== JSON.stringify(nextState.catalog);
     const configResult = syncOpenCodeConfig(nextRegistry, config);
@@ -255,6 +259,10 @@ function evictSessions() {
 
 function requireLocalAuth(request) {
   if (bearer(request) !== config.localToken) throw httpError(401, "Missing or invalid authorization", "unauthorized");
+}
+
+async function authenticated() {
+  return (await authStatus()).status === "logged-in";
 }
 
 function bearer(request) {
@@ -300,7 +308,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
   });
 }
 
-if (cursorApiKey && config.catalogRefreshMs > 0) {
+if (config.catalogRefreshMs > 0) {
   const refreshTimer = setInterval(() => refreshCatalog().catch((error) => {
     console.error(`Model catalog refresh failed: ${error.message}`);
   }), config.catalogRefreshMs);

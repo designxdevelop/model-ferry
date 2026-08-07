@@ -5,7 +5,6 @@ import path from "node:path";
 export const projectRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
 export const configDir = path.join(os.homedir(), ".config", "modelferry");
 export const configPath = path.join(configDir, "config.json");
-export const credentialPath = path.join(configDir, "credentials");
 export const catalogPath = path.join(configDir, "catalog.json");
 export const launchAgentPath = path.join(os.homedir(), "Library", "LaunchAgents", "ai.dxd.modelferry.plist");
 export const openCodeConfigPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
@@ -31,18 +30,6 @@ export function loadConfig() {
     host: process.env.MODELFERRY_HOST || stored.host || defaults.host,
     port: Number(process.env.MODELFERRY_PORT || stored.port || defaults.port)
   };
-}
-
-export function loadCursorApiKey() {
-  if (process.env.CURSOR_API_KEY?.trim()) return process.env.CURSOR_API_KEY.trim();
-  try {
-    const raw = fs.readFileSync(credentialPath, "utf8");
-    for (const line of raw.split(/\r?\n/)) {
-      const match = line.match(/^CURSOR_API_KEY=(.*)$/);
-      if (match?.[1]?.trim()) return match[1].trim();
-    }
-  } catch {}
-  return "";
 }
 
 export function ensurePrivateDirectory() {

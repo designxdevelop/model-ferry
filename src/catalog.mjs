@@ -101,17 +101,25 @@ export function readCachedCatalog() {
   }
 }
 
-export async function fetchCatalog(apiKey) {
-  if (!apiKey) throw new Error("Cursor API key is not configured");
-  const catalog = normalizeCatalog(await Cursor.models.list({ apiKey }));
+export async function fetchCatalog() {
+  let models;
+  try {
+    models = await Cursor.models.list();
+  } catch (error) {
+    if (error?.code === "unauthenticated" || error?.name === "AuthenticationError") {
+      throw new Error("Cursor authentication failed. Run `npm run setup` to sign in, or check CURSOR_API_KEY.");
+    }
+    throw error;
+  }
+  const catalog = normalizeCatalog(models);
   const fetchedAt = new Date().toISOString();
   writePrivateFile(catalogPath, `${JSON.stringify({ version: CACHE_VERSION, fetchedAt, models: catalog }, null, 2)}\n`);
   return { fetchedAt, catalog, source: "cursor" };
 }
 
-export async function loadCatalog(apiKey) {
+export async function loadCatalog() {
   try {
-    return await fetchCatalog(apiKey);
+    return await fetchCatalog();
   } catch (error) {
     const cached = readCachedCatalog();
     if (cached) return { ...cached, error: error.message };

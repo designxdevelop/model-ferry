@@ -4,25 +4,41 @@ Model Ferry is a persistent, loopback-only OpenAI-compatible adapter from OpenCo
 
 It fixes two behaviors of API for Cursor:
 
-- The bridge starts at login through `launchd` and reads a mode-`0600` credential file, so it does not ask to unlock a Keychain item after every restart.
+- The bridge starts at login through `launchd`, so you don't get a Keychain unlock prompt after every restart. Authentication uses the Cursor SDK's stored browser login, or `CURSOR_API_KEY` when set.
 - Its installer adds the `cursorapi` provider and synchronizes the authenticated Cursor model catalog without creating or changing OpenCode's top-level `model` setting.
 
 ## Install
-
-Keep API for Cursor unlocked for the one-time key migration, then run:
 
 ```sh
 npm install
 npm run setup
 ```
 
+The first time, `setup` signs you in with your Cursor account: a browser opens to complete a Cursor sign-in, and the SDK mints a 90-day API key stored at `~/.cursor/sdk/auth.json`. If you already have a Cursor API key, set `CURSOR_API_KEY` and run setup again — no browser login needed.
+
 The setup command creates:
 
-- `~/.config/modelferry/credentials` (`0600`)
 - `~/Library/LaunchAgents/ai.dxd.modelferry.plist`
 - a `cursorapi` provider in `~/.config/opencode/opencode.json`
 
 It backs up the OpenCode config before changing it and preserves the existing default model exactly.
+
+## Authentication
+
+The bridge never stores Cursor credentials itself. It relies on the Cursor SDK's auth resolution, in this order:
+
+1. `CURSOR_API_KEY` environment variable
+2. A stored browser login from `Cursor.auth.login()` (`~/.cursor/sdk/auth.json`)
+
+```sh
+npm run login    # browser login; always mints a fresh 90-day API key
+npm run logout   # clear the stored browser login
+npm run status   # shows auth state and bridge health
+```
+
+The bridge runs as a `launchd` launch agent, which does not inherit shell environment variables. A stored browser login works there out of the box; a `CURSOR_API_KEY` needs to be set for launchd too (`launchctl setenv CURSOR_API_KEY <key>`).
+
+Minted keys expire after 90 days. When that happens, re-run `npm run login` (or `npm run setup`) to mint a fresh one, or switch to a `CURSOR_API_KEY`.
 
 ## Use
 
@@ -51,9 +67,9 @@ OpenCode may need to be restarted or its configuration reloaded before newly add
 
 For clients without native variant support, the bridge also understands deterministic `model@variant` identifiers. Set `"exposeVariantAliases": true` in `~/.config/modelferry/config.json` and run `npm run refresh` to add those aliases to OpenCode's model picker. This is disabled by default because it can add hundreds of entries.
 
-## Security tradeoff
+## Security
 
-The Cursor API key is stored as plaintext readable only by your macOS user (`0600`). This deliberately avoids Keychain authorization prompts for a background launch agent. The HTTP API binds only to `127.0.0.1` and requires a local bearer token.
+Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user. The HTTP API binds only to `127.0.0.1` and requires a local bearer token.
 
 ## Scope
 

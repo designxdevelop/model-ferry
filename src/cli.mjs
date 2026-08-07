@@ -4,14 +4,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { authStatus, ensureAuthenticated, login as browserLogin, logout as clearAuth } from "./auth.mjs";
 import {
   configPath,
-  credentialPath,
   defaults,
   ensurePrivateDirectory,
   launchAgentPath,
   loadConfig,
-  loadCursorApiKey,
   openCodeConfigPath,
   projectRoot,
   writePrivateFile
@@ -20,6 +19,8 @@ import { buildRegistry, fetchCatalog, readCachedCatalog, syncOpenCodeConfig } fr
 
 const command = process.argv[2] || "help";
 if (command === "setup") await setup();
+else if (command === "login") await login();
+else if (command === "logout") await logout();
 else if (command === "status") await status();
 else if (command === "refresh") await refresh();
 else if (command === "models") await models();
@@ -28,28 +29,36 @@ else help();
 
 async function setup() {
   ensurePrivateDirectory();
-  const key = loadCursorApiKey() || migrateKeychainKey();
-  if (!key) throw new Error("Could not read the existing API for Cursor key. Keep that app unlocked and rerun setup, or set CURSOR_API_KEY for this command.");
-  writePrivateFile(credentialPath, `CURSOR_API_KEY=${key}\n`);
+  const auth = await ensureAuthenticated();
   writePrivateFile(configPath, `${JSON.stringify(defaults, null, 2)}\n`);
-  const state = await fetchCatalog(key);
+  const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
   syncOpenCodeConfig(registry, defaults);
   installLaunchAgent();
   console.log(`Model Ferry installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
+  console.log(auth.via === "env"
+    ? "Authenticated via CURSOR_API_KEY."
+    : auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
+  if (auth.via === "env") {
+    console.log("Note: the launchd agent does not inherit shell environment variables. If the bridge reports not authenticated, run `npm run login` once, or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`.");
+  }
   console.log("Your existing OpenCode default model was preserved.");
   console.log("Select the Cursor provider in OpenCode, then choose a model and variant.");
 }
 
-function migrateKeychainKey() {
-  if (process.env.CURSOR_API_KEY?.trim()) return process.env.CURSOR_API_KEY.trim();
-  try {
-    return execFileSync("/usr/bin/security", [
-      "find-generic-password", "-w", "-s", "ai.standardagents.apiforcursor", "-a", "cursor-api-key"
-    ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch {
-    return "";
-  }
+async function login() {
+  const auth = await browserLogin();
+  const state = await fetchCatalog();
+  const registry = buildRegistry(state.catalog);
+  syncOpenCodeConfig(registry, loadConfig());
+  restartLaunchAgent();
+  console.log(auth.email ? `Signed in as ${auth.email}.` : "Signed in with your Cursor account.");
+  console.log(`Cursor catalog refreshed: ${registry.models.length} models, ${variantCount(registry)} variants.`);
+}
+
+async function logout() {
+  await clearAuth();
+  console.log("Signed out. The minted API key stays valid in the Cursor dashboard until it expires.");
 }
 
 function installLaunchAgent() {
@@ -78,6 +87,10 @@ function installLaunchAgent() {
 }
 
 async function status() {
+  const auth = await authStatus();
+  console.log(`auth: ${auth.status === "logged-in"
+    ? `logged in${auth.via === "env" ? " (CURSOR_API_KEY)" : auth.email ? ` (${auth.email})` : ""}`
+    : "logged out"}`);
   const config = loadConfig();
   try {
     const response = await fetch(`http://${config.host}:${config.port}/health`);
@@ -100,9 +113,7 @@ async function refresh() {
     console.log(`Cursor catalog refreshed: ${body.catalog.models} models, ${body.catalog.variants} variants${body.changed ? " (updated)" : " (unchanged)"}.`);
     return;
   } catch {}
-  const key = loadCursorApiKey();
-  if (!key) throw new Error("Cursor API key is not configured. Run: npm run setup");
-  const state = await fetchCatalog(key);
+  const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
   const result = syncOpenCodeConfig(registry, config);
   restartLaunchAgent();
@@ -113,9 +124,7 @@ async function refresh() {
 async function models() {
   let state = readCachedCatalog();
   if (!state) {
-    const key = loadCursorApiKey();
-    if (!key) throw new Error("No cached catalog is available. Run: npm run setup");
-    state = await fetchCatalog(key);
+    state = await fetchCatalog();
   }
   const registry = buildRegistry(state.catalog);
   console.log(`${registry.models.length} models, ${variantCount(registry)} variants (fetched ${state.fetchedAt})`);
@@ -139,7 +148,7 @@ async function uninstall() {
     delete config.provider.cursorapi;
     fs.writeFileSync(openCodeConfigPath, `${JSON.stringify(config, null, 2)}\n`);
   }
-  console.log(`Launch agent removed. Credentials remain at ${credentialPath} until you delete them.`);
+  console.log("Launch agent removed. The Cursor browser login (if any) remains in ~/.cursor/sdk/auth.json. Run `modelferry logout` to clear it.");
 }
 
 function readJson(file, fallback) {
@@ -151,7 +160,7 @@ function xml(value) {
 }
 
 function help() {
-  console.log("Usage: modelferry <setup|status|refresh|models|uninstall>");
+  console.log("Usage: modelferry <setup|login|logout|status|refresh|models|uninstall>");
 }
 
 function variantCount(registry) {
