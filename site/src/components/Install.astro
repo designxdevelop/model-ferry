@@ -24,6 +24,12 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
       Cursor and adds the <code>cursorapi</code> provider to OpenCode. Your default model stays untouched.
     </p>
 
+    <div class="callout">
+      <span class="callout-title">Uses your Cursor subscription</span>
+      Every request runs through your own Cursor account. Your Cursor usage limits, model eligibility, and
+      account terms apply exactly as they would in the Cursor app.
+    </div>
+
     <h3 class="subheading">Manual setup</h3>
     <div class="cols">
       <div class="code">
@@ -49,6 +55,8 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .code { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); overflow: hidden; }
   .code.quick { margin-bottom: 12px; }
+  .callout { margin: 24px 0 0; padding: 16px 20px; border: 1px solid rgba(47, 129, 247, 0.3); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--accent-soft); font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .callout-title { display: block; font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 4px; }
   .code .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
   .code pre { margin: 0; padding: 18px 20px; font-size: 13px; line-height: 1.8; color: #d7d7db; white-space: pre-wrap; }
   .code .cmt { color: var(--faint); }
