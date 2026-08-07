@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Model Ferry installer
-#   Quick install:  curl -fsSL https://raw.githubusercontent.com/designxdevelop/model-ferry/main/install.sh | bash
+#   Quick install:  curl -fsSL https://ferry.designxdevelop.com/install.sh | bash
 #   Local:          bash install.sh
 # Clones the repo into $MODELFERRY_DIR (default ~/.modelferry), installs
 # dependencies, and runs setup (signs in with Cursor, installs the launchd

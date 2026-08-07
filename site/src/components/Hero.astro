@@ -1,6 +1,5 @@
 ---
-const variants = ["Fast", "Balanced", "High standard", "1M context"];
-const selected = "High standard";
+const quick = `curl -fsSL https://ferry.designxdevelop.com/install.sh | bash`;
 ---
 <section class="hero">
   <div class="container">
@@ -11,38 +10,27 @@ const selected = "High standard";
         Model Ferry is a loopback-only bridge that syncs Cursor's full model catalog — reasoning,
         effort, context, and fast presets — into OpenCode as native variants.
       </p>
+
       <div class="cta">
         <a class="btn primary" href="#install">Install</a>
         <a class="btn ghost" href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">View on GitHub</a>
       </div>
-      <p class="hint">No special commands needed — the models just show up in OpenCode's picker.</p>
-    </div>
 
-    <div class="picker" aria-hidden="true">
-      <div class="pbar">
-        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-        <span class="title">OpenCode &middot; model picker</span>
+      <div class="code">
+        <div class="bar"><span class="title">install</span><button class="copy" data-copy="#hero-install" type="button">Copy</button></div>
+        <pre><span class="cmt"># install the bridge, sign in, and launch it</span>
+<span id="hero-install">{quick}</span></pre>
       </div>
-      <div class="pbody">
-        <div class="prow"><span class="k">Provider</span><span class="v">Cursor <span class="caret">&#9662;</span></span></div>
-        <div class="prow"><span class="k">Model</span><span class="v">Composer 2.5 <span class="caret">&#9662;</span></span></div>
-        <div class="prow"><span class="k">Variant</span><span class="v">High standard <span class="caret">&#9662;</span></span></div>
-        <div class="pmenu">
-          {variants.map((variant) => (
-            <div class={"popt" + (variant === selected ? " sel" : "")}>{variant}</div>
-          ))}
-        </div>
-      </div>
-      <div class="pfoot">
-        <span><b>34 models</b> &middot; 331 variants</span>
-        <span class="sync"><span class="sync-dot"></span>auto-sync</span>
-      </div>
+
+      <p class="hint">
+        Then pick the <strong>Cursor</strong> provider in OpenCode and choose a model — the models just show up in the picker.
+      </p>
     </div>
   </div>
 </section>
 
 <style>
-  .hero { position: relative; padding: 112px 0 96px; overflow: hidden; }
+  .hero { position: relative; padding: 128px 0 112px; overflow: hidden; }
   .hero::before {
     content: ""; position: absolute; inset: 0;
     background:
@@ -54,36 +42,23 @@ const selected = "High standard";
     -webkit-mask-image: radial-gradient(700px 420px at 50% 0%, black, transparent 75%);
     pointer-events: none;
   }
-  .hero .container { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
+  .hero .container { position: relative; }
+  .inner { display: flex; flex-direction: column; align-items: center; text-align: center; }
   .inner h1 { font-size: clamp(42px, 6vw, 68px); font-weight: 700; }
   .inner h1 .accent { color: var(--accent); }
-  .lede { margin: 24px 0 28px; max-width: 520px; font-size: 18px; color: var(--muted); }
-  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
-  .hint { margin: 20px 0 0; font-size: 13px; color: var(--faint); }
+  .lede { margin: 24px auto 36px; max-width: 600px; font-size: 18px; color: var(--muted); }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 28px; }
 
-  .picker { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; }
-  .pbar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
-  .pbar .dot { width: 10px; height: 10px; border-radius: 50%; background: #33333a; }
-  .pbar .dot:nth-child(1) { background: #ff5f57; }
-  .pbar .dot:nth-child(2) { background: #febc2e; }
-  .pbar .dot:nth-child(3) { background: #28c840; }
-  .pbar .title { margin-left: 8px; font-size: 12px; color: var(--faint); }
-  .pbody { padding: 6px 16px; }
-  .prow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
-  .prow:last-of-type { border-bottom: none; }
-  .prow .k { color: var(--faint); font-size: 11px; font-family: "JetBrains Mono", monospace; text-transform: uppercase; letter-spacing: 0.08em; }
-  .prow .v { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
-  .prow .v .caret { color: var(--faint); font-size: 11px; }
-  .pmenu { margin: 12px 0 14px; border: 1px solid var(--line); border-radius: 10px; padding: 6px; background: var(--card); }
-  .popt { padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--muted); }
-  .popt.sel { background: var(--accent-soft); color: var(--text); }
-  .pfoot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
-  .pfoot b { color: var(--muted); font-weight: 600; }
-  .sync { display: inline-flex; align-items: center; gap: 6px; }
-  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; }
+  .code { width: 100%; max-width: 640px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .bar .title { font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
+  .bar .copy { margin-left: auto; }
+  .code pre { margin: 0; padding: 18px 20px; font-size: 13px; line-height: 1.8; color: #d7d7db; white-space: pre-wrap; word-break: break-word; text-align: left; }
+  .code .cmt { color: var(--faint); }
+  .hint { margin: 20px 0 0; font-size: 13px; color: var(--faint); }
+  .hint strong { color: var(--muted); font-weight: 600; }
 
   @media (max-width: 860px) {
-    .hero { padding: 80px 0 64px; }
-    .hero .container { grid-template-columns: 1fr; gap: 40px; }
+    .hero { padding: 96px 0 80px; }
   }
 </style>
