@@ -6,7 +6,7 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { authStatus, login as renewLogin, needsRenewal } from "./auth.mjs";
-import { configPath, loadConfig } from "./config.mjs";
+import { configPath, loadConfig, updateConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
 import { onboardingPage } from "./onboard.mjs";
 import {
@@ -117,8 +117,16 @@ async function route(request, response) {
       renewing: Boolean(authLoginInFlight),
       lastAuthError,
       ready: auth.status === "logged-in" && registry.models.length > 0,
+      stripSystemPrompt: config.stripSystemPrompt,
       catalog: catalogState ? catalogSummary(catalogState, registry) : null
     });
+  }
+  if (request.method === "POST" && url.pathname === "/v1/config") {
+    const body = await readJson(request);
+    const patch = {};
+    if (typeof body.stripSystemPrompt === "boolean") patch.stripSystemPrompt = body.stripSystemPrompt;
+    if (Object.keys(patch).length) Object.assign(config, updateConfig(patch));
+    return json(response, 200, { stripSystemPrompt: config.stripSystemPrompt });
   }
   if (request.method === "POST" && url.pathname === "/v1/auth/login") {
     startAuthLogin();
@@ -165,7 +173,7 @@ async function chatCompletion(request, response, body) {
   const tools = parseTools(body);
   const sessionKey = `${requestSessionKey(request, body)}\0${JSON.stringify(selection)}\0${workingDirectory(request)}`;
   const session = await getSession(sessionKey, selection, workingDirectory(request));
-  const prompt = renderTranscript(body.messages || [], tools);
+  const prompt = renderTranscript(body.messages || [], tools, { stripSystemPrompt: config.stripSystemPrompt });
   const captureId = crypto.randomUUID();
   let capturedTool = null;
   let activeRun = null;

@@ -75,6 +75,10 @@ OpenCode may need to be restarted or its configuration reloaded before newly add
 
 For clients without native variant support, the bridge also understands deterministic `model@variant` identifiers. Set `"exposeVariantAliases": true` in `~/.config/modelferry/config.json` and run `npm run refresh` to add those aliases to OpenCode's model picker. This is disabled by default because it can add hundreds of entries.
 
+### System prompts
+
+Cursor's agent applies its own system prompt on every run, so the bridge excludes the outer client's system message by default to avoid sending the model two competing system prompts. The `<available_skills>` block and any `Instructions from:` project guidance (AGENTS.md) from the outer client are preserved so OpenCode skills and project rules stay visible to the Cursor agent. To send the full outer system message through instead, set `"stripSystemPrompt": false` in `~/.config/modelferry/config.json`. The setup page at `http://127.0.0.1:8791/onboard` exposes this as a toggle, so you can flip it without editing the config file.
+
 ## Security
 
 Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user. The HTTP API binds only to `127.0.0.1` and requires a local bearer token.

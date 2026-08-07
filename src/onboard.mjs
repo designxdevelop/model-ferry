@@ -35,6 +35,17 @@ export const onboardingPage = `<!doctype html>
   .foot a { color: #8a8a92; text-decoration: none; }
   .foot a:hover { color: #f2f2f3; }
   .legalese { text-align: center; margin-top: 10px; font-size: 10px; line-height: 1.6; color: #4c4c52; }
+  .card.settings { margin-top: 16px; }
+  .label { color: #8a8a92; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .row { display: flex; align-items: flex-start; gap: 16px; cursor: pointer; }
+  .row .row-text { flex: 1; }
+  .row-title { display: block; font-size: 14px; font-weight: 600; }
+  .row-note { display: block; font-size: 12px; color: #8a8a92; line-height: 1.5; margin-top: 4px; }
+  .row-note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #1c1c20; padding: 1px 4px; border-radius: 4px; }
+  input[type="checkbox"] { appearance: none; flex: none; width: 40px; height: 22px; margin: 2px 0 0; border-radius: 999px; background: #2a2a30; position: relative; cursor: pointer; transition: background 0.15s ease; }
+  input[type="checkbox"]::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #f2f2f3; transition: transform 0.15s ease; }
+  input[type="checkbox"]:checked { background: #2f81f7; }
+  input[type="checkbox"]:checked::after { transform: translateX(18px); }
 </style>
 </head>
 <body>
@@ -55,6 +66,16 @@ export const onboardingPage = `<!doctype html>
     <button class="ghost" id="logout" hidden>Sign out</button>
     <div class="meta" id="meta"></div>
   </div>
+  <div class="card settings" id="settingsCard" hidden>
+    <div class="label">Bridge behavior</div>
+    <label class="row">
+      <span class="row-text">
+        <span class="row-title">Strip the outer client&rsquo;s system prompt</span>
+        <span class="row-note">Cursor agents already carry their own system prompt, so the outer client&rsquo;s system message is left out to avoid two competing prompts. OpenCode skills and <code>AGENTS.md</code> guidance are still forwarded to the model.</span>
+      </span>
+      <input type="checkbox" id="stripSystemPrompt" />
+    </label>
+  </div>
   <div class="foot">
     <span>Built by <a href="https://designxdevelop.com" target="_blank" rel="noopener">Design X Develop</a></span>
     <span class="sep">&middot;</span>
@@ -67,6 +88,8 @@ export const onboardingPage = `<!doctype html>
   const metaEl = document.getElementById("meta");
   const signinBtn = document.getElementById("signin");
   const logoutBtn = document.getElementById("logout");
+  const settingsCard = document.getElementById("settingsCard");
+  const stripSystemPromptEl = document.getElementById("stripSystemPrompt");
   let renewing = false;
 
   async function fetchState() {
@@ -87,6 +110,8 @@ export const onboardingPage = `<!doctype html>
   }
 
   function render(state) {
+    settingsCard.hidden = false;
+    stripSystemPromptEl.checked = Boolean(state.stripSystemPrompt);
     if (state.status === "logged-in") {
       const who = state.email ? escapeHtml(state.email) : "Your Cursor account";
       const expires = state.apiKeyExpiresAtMs ? '<div class="note">Renews automatically before ' + new Date(state.apiKeyExpiresAtMs).toLocaleDateString() + "</div>" : "";
@@ -115,6 +140,22 @@ export const onboardingPage = `<!doctype html>
   logoutBtn.addEventListener("click", async () => {
     await fetch("/v1/auth/logout", { method: "POST" });
     refresh();
+  });
+
+  stripSystemPromptEl.addEventListener("change", async () => {
+    const target = stripSystemPromptEl.checked;
+    try {
+      const res = await fetch("/v1/config", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ stripSystemPrompt: target })
+      });
+      if (!res.ok) throw new Error("config update failed");
+      const body = await res.json();
+      stripSystemPromptEl.checked = Boolean(body.stripSystemPrompt);
+    } catch {
+      stripSystemPromptEl.checked = !target;
+    }
   });
 
   function escapeHtml(value) {

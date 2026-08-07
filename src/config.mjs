@@ -18,7 +18,8 @@ export const defaults = {
   catalogRefreshMs: 6 * 60 * 60 * 1000,
   loginRenewMs: 3 * 24 * 60 * 60 * 1000,
   loginTimeoutMs: 5 * 60 * 1000,
-  exposeVariantAliases: false
+  exposeVariantAliases: false,
+  stripSystemPrompt: true
 };
 
 export function loadConfig() {
@@ -45,4 +46,12 @@ export function writePrivateFile(file, content) {
   fs.writeFileSync(temporary, content, { mode: 0o600 });
   fs.renameSync(temporary, file);
   fs.chmodSync(file, 0o600);
+}
+
+export function updateConfig(patch) {
+  let stored = {};
+  try { stored = JSON.parse(fs.readFileSync(configPath, "utf8")); } catch {}
+  const next = { ...stored, ...patch };
+  writePrivateFile(configPath, `${JSON.stringify(next, null, 2)}\n`);
+  return next;
 }

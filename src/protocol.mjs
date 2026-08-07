@@ -42,7 +42,11 @@ export function parseTools(body) {
   });
 }
 
-export function renderTranscript(messages = [], tools = []) {
+const SKILLS_BLOCK = /<available_skills>[\s\S]*?<\/available_skills>/g;
+const INSTRUCTION_BLOCK = /Instructions from: [^\n]+\n[\s\S]*?(?=\nInstructions from: |\n<available_skills>|\n<mcp_instructions>|\n<env>|$)/g;
+
+export function renderTranscript(messages = [], tools = [], options = {}) {
+  const { stripSystemPrompt = true } = options;
   const toolNames = tools.map((tool) => tool.name).join(", ");
   const instructions = [
     "You are being called through an OpenAI-compatible bridge from OpenCode.",
@@ -54,18 +58,44 @@ export function renderTranscript(messages = [], tools = []) {
     "Do not describe a tool call in prose when a tool is required."
   ].join("\n");
 
-  const transcript = messages.map((message) => {
-    const role = String(message?.role || "user").toUpperCase();
-    if (role === "TOOL") {
-      return `TOOL RESULT (${message.tool_call_id || message.name || "unknown"}):\n${textContent(message.content)}`;
+  const sections = [instructions];
+  if (stripSystemPrompt) sections.push(...preserveSystemContext(messages));
+
+  const transcript = messages
+    .filter((message) => !stripSystemPrompt || !isSystemMessage(message))
+    .map((message) => {
+      const role = String(message?.role || "user").toUpperCase();
+      if (role === "TOOL") {
+        return `TOOL RESULT (${message.tool_call_id || message.name || "unknown"}):\n${textContent(message.content)}`;
+      }
+      if (role === "ASSISTANT" && Array.isArray(message.tool_calls) && message.tool_calls.length) {
+        const calls = message.tool_calls.map((call) => `${call.function?.name || "tool"}(${call.function?.arguments || "{}"})`).join("\n");
+        return `ASSISTANT TOOL CALL:\n${calls}`;
+      }
+      return `${role}:\n${textContent(message?.content)}`;
+    }).join("\n\n");
+
+  sections.push(transcript);
+  return sections.join("\n\n").trim();
+}
+
+function isSystemMessage(message) {
+  return String(message?.role || "").toLowerCase() === "system";
+}
+
+function preserveSystemContext(messages) {
+  const sections = [];
+  for (const message of messages) {
+    if (!isSystemMessage(message)) continue;
+    const content = textContent(message?.content);
+    for (const match of content.matchAll(SKILLS_BLOCK)) {
+      sections.push(`Skills provide specialized instructions and workflows for specific tasks. Use the skill tool to load a skill when a task matches its description.\n${match[0].trim()}`);
     }
-    if (role === "ASSISTANT" && Array.isArray(message.tool_calls) && message.tool_calls.length) {
-      const calls = message.tool_calls.map((call) => `${call.function?.name || "tool"}(${call.function?.arguments || "{}"})`).join("\n");
-      return `ASSISTANT TOOL CALL:\n${calls}`;
+    for (const match of content.matchAll(INSTRUCTION_BLOCK)) {
+      sections.push(match[0].trim());
     }
-    return `${role}:\n${textContent(message?.content)}`;
-  }).join("\n\n");
-  return `${instructions}\n\n${transcript}`.trim();
+  }
+  return [...new Set(sections)];
 }
 
 function textContent(content) {
