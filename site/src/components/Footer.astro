@@ -1,0 +1,44 @@
+---
+import FerryMark from "./FerryMark.astro";
+---
+<footer class="foot">
+  <div class="container">
+    <div class="top">
+      <a class="brand" href="/">
+        <FerryMark size={20} />
+        <span>Model Ferry</span>
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#install">Install</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+      <span class="built">Built by <a href="https://designxdevelop.com" target="_blank" rel="noopener">Design X Develop</a></span>
+    </div>
+    <div class="legalese">
+      Cursor and all other trademarks are the property of their respective owners. Model Ferry is not affiliated with,
+      sponsored, or endorsed by Anysphere, Inc. Licensed under the MIT License. All rights reserved.
+    </div>
+  </div>
+</footer>
+
+<style>
+  .foot { border-top: 1px solid var(--line); padding: 40px 0 48px; }
+  .top { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font-weight: 600; font-size: 15px; }
+  .brand svg { color: var(--text); }
+  .foot nav { display: flex; gap: 20px; margin-left: auto; }
+  .foot nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  .foot nav a:hover { color: var(--text); }
+  .built { font-size: 14px; color: var(--muted); }
+  .built a { color: var(--text); text-decoration: none; }
+  .built a:hover { text-decoration: underline; }
+  .legalese { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 11px; color: var(--faint); line-height: 1.7; max-width: 720px; }
+  @media (max-width: 720px) {
+    .top { gap: 16px; }
+    .foot nav { margin-left: 0; width: 100%; }
+    .built { width: 100%; }
+  }
+</style>

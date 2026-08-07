@@ -1,0 +1,72 @@
+---
+const lines = [
+  ["$", "opencode run -m cursorapi/composer-2.5 --variant high-standard \\"],
+  [">", "    \"Refactor the auth module\""],
+  ["·", "reading catalog… 34 models · 331 variants"],
+  ["·", "cursorapi/composer-2.5 · high-standard · thinking"],
+  ["✓", "done — 12 files changed"]
+];
+---
+<section class="hero">
+  <div class="container">
+    <div class="inner">
+      <span class="kicker">Open source · MIT</span>
+      <h1>Your Cursor models,<br />in <span class="accent">OpenCode</span>.</h1>
+      <p class="lede">
+        Model Ferry is a loopback-only bridge that syncs Cursor's full model catalog — reasoning,
+        effort, context, and fast presets — into OpenCode as native variants.
+      </p>
+      <div class="cta">
+        <a class="btn primary" href="#install">Install Model Ferry</a>
+        <a class="btn ghost" href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">View on GitHub</a>
+      </div>
+    </div>
+
+    <div class="terminal" aria-hidden="true">
+      <div class="bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="title">opencode</span></div>
+      <div class="body">
+        {lines.map(([prefix, text]) => (
+          <div class="row"><span class={"p " + (prefix === "$" ? "dollar" : prefix === "✓" ? "ok" : "")}>{prefix}</span><span>{text}</span></div>
+        ))}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero { position: relative; padding: 112px 0 96px; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background:
+      radial-gradient(900px 480px at 50% -10%, rgba(47, 129, 247, 0.12), transparent 60%),
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 100% 100%, 44px 44px, 44px 44px;
+    mask-image: radial-gradient(700px 420px at 50% 0%, black, transparent 75%);
+    -webkit-mask-image: radial-gradient(700px 420px at 50% 0%, black, transparent 75%);
+    pointer-events: none;
+  }
+  .hero .container { position: relative; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; }
+  .inner h1 { font-size: clamp(42px, 6vw, 68px); font-weight: 700; }
+  .inner h1 .accent { color: var(--accent); }
+  .lede { margin: 24px 0 32px; max-width: 520px; font-size: 18px; color: var(--muted); }
+  .cta { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .terminal { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); box-shadow: 0 30px 80px rgba(0,0,0,0.45); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .bar .dot { width: 10px; height: 10px; border-radius: 50%; background: #33333a; }
+  .bar .dot:nth-child(1) { background: #ff5f57; }
+  .bar .dot:nth-child(2) { background: #febc2e; }
+  .bar .dot:nth-child(3) { background: #28c840; }
+  .bar .title { margin-left: 8px; font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
+  .body { padding: 18px 20px; font-size: 13px; line-height: 2; font-family: "JetBrains Mono", monospace; color: #d7d7db; }
+  .row { white-space: pre-wrap; word-break: break-word; }
+  .p { display: inline-block; width: 22px; color: var(--faint); user-select: none; }
+  .p.dollar { color: var(--accent); }
+  .p.ok { color: #4ade80; }
+
+  @media (max-width: 860px) {
+    .hero { padding: 80px 0 64px; }
+    .hero .container { grid-template-columns: 1fr; gap: 40px; }
+  }
+</style>

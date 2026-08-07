@@ -1,0 +1,44 @@
+---
+const steps = [
+  {
+    n: "01",
+    title: "Install",
+    body: "npm install, then npm run setup. The bridge installs a launchd agent and adds a cursorapi provider to OpenCode — your default model stays untouched."
+  },
+  {
+    n: "02",
+    title: "Sign in",
+    body: "A browser opens to Cursor. Complete the sign-in and Model Ferry mints a 90-day API key that renews automatically before it expires — or set CURSOR_API_KEY to skip the browser."
+  },
+  {
+    n: "03",
+    title: "Pick Cursor in OpenCode",
+    body: "Choose the Cursor provider, select any model, and use the variant picker to switch between thinking, effort, and fast presets."
+  }
+];
+---
+<section class="section" id="how">
+  <div class="container">
+    <span class="kicker">How it works</span>
+    <h2 class="heading">Up and running in three steps.</h2>
+    <div class="steps">
+      {steps.map((step) => (
+        <div class="step">
+          <span class="num">{step.n}</span>
+          <h3>{step.title}</h3>
+          <p>{step.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .heading { font-size: clamp(30px, 4vw, 44px); margin-bottom: 44px; }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; counter-reset: step; }
+  .step { position: relative; padding: 28px 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); }
+  .step .num { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--accent); }
+  .step h3 { font-size: 18px; margin: 10px 0 8px; }
+  .step p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
+  @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }
+</style>

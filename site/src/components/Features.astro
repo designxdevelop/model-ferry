@@ -1,0 +1,55 @@
+---
+const features = [
+  {
+    title: "Full catalog sync",
+    body: "Every model and parameter combination available to your Cursor account — discovered through the Cursor Agent SDK and refreshed on a schedule."
+  },
+  {
+    title: "Native variants",
+    body: "Cursor's exact thinking, reasoning, effort, context, and fast presets surface as OpenCode variants, switchable from the picker or --variant."
+  },
+  {
+    title: "Zero-credential setup",
+    body: "A one-time browser sign-in mints a 90-day key. The bridge renews it automatically before it lapses — no API-key vaulting on your part."
+  },
+  {
+    title: "Background launch agent",
+    body: "Starts at login via launchd, so you never see a Keychain unlock prompt after a restart."
+  },
+  {
+    title: "Loopback only",
+    body: "The HTTP API binds to 127.0.0.1 and requires a local bearer token. Nothing else on your network can reach it."
+  },
+  {
+    title: "Tools that just work",
+    body: "OpenCode function tools are bridged to Cursor agents through a temporary MCP server, and results are returned to OpenCode for execution."
+  }
+];
+---
+<section class="section" id="features">
+  <div class="container">
+    <span class="kicker">Features</span>
+    <h2 class="heading">The bridge between two great tools.</h2>
+    <p class="sub">No key wrangling, no duplicated prompts, no extra services to run.</p>
+    <div class="grid">
+      {features.map((feature) => (
+        <div class="card">
+          <h3>{feature.title}</h3>
+          <p>{feature.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .heading { font-size: clamp(30px, 4vw, 44px); max-width: 620px; }
+  .sub { color: var(--muted); font-size: 17px; margin: 12px 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+  .card:hover { border-color: var(--line-strong); }
+  .card h3 { font-size: 17px; margin-bottom: 8px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+</style>

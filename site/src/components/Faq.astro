@@ -1,0 +1,54 @@
+---
+const faqs = [
+  {
+    q: "Do I need a Cursor subscription?",
+    a: "The catalog reflects what your Cursor account can use. Cursor subscription limits, model eligibility, and usage accounting still apply — Model Ferry just makes those models selectable in OpenCode."
+  },
+  {
+    q: "Where is my Cursor credential stored?",
+    a: "Model Ferry stores nothing. The browser sign-in mints a 90-day API key that the Cursor SDK keeps in ~/.cursor/sdk/auth.json, readable only by your user. It auto-renews before expiry; you can also set CURSOR_API_KEY to skip the browser flow entirely."
+  },
+  {
+    q: "Is Model Ferry affiliated with Cursor or Anysphere?",
+    a: "No. Model Ferry is an independent open-source project built on Cursor's public Agent SDK. Cursor is a trademark of Anysphere, Inc., and all trademarks belong to their respective owners."
+  },
+  {
+    q: "Which clients does it support?",
+    a: "OpenCode is the reference client, but the bridge speaks the standard OpenAI-compatible chat API over a loopback HTTP server, so any local client that supports custom providers can point at it."
+  },
+  {
+    q: "Is anything sent off my machine?",
+    a: "Only your model prompts. As with any Cursor agent run, prompts and tool activity are sent to Cursor's servers (Anysphere) for model inference — the Cursor SDK client and agent loop are what run locally. The bridge itself has no telemetry or analytics and never reports to anyone else, and the local HTTP API binds to 127.0.0.1."
+  },
+  {
+    q: "What if the default port is taken?",
+    a: "The bridge scans the next 19 ports, binds the first free one, and records the resolved port in its config so the OpenCode provider, onboarding page, and CLI all agree."
+  }
+];
+---
+<section class="section" id="faq">
+  <div class="container narrow">
+    <span class="kicker">FAQ</span>
+    <h2 class="heading">Questions, answered.</h2>
+    <div class="list">
+      {faqs.map((item) => (
+        <details class="item">
+          <summary>{item.q}</summary>
+          <p>{item.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .container.narrow { max-width: 720px; }
+  .heading { font-size: clamp(30px, 4vw, 44px); margin-bottom: 32px; }
+  .item { border-bottom: 1px solid var(--line); }
+  .item:first-child { border-top: 1px solid var(--line); }
+  .item summary { list-style: none; cursor: pointer; padding: 20px 0; font-weight: 600; font-size: 16px; display: flex; justify-content: space-between; align-items: center; }
+  .item summary::-webkit-details-marker { display: none; }
+  .item summary::after { content: "+"; color: var(--faint); font-size: 20px; font-weight: 400; margin-left: 16px; }
+  .item[open] summary::after { content: "–"; }
+  .item p { margin: 0 0 20px; color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 620px; }
+</style>
