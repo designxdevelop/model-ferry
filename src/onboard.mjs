@@ -21,6 +21,7 @@ export const onboardingPage = `<!doctype html>
   .status.ready .dot { background: #4ade80; }
   .status .label { color: #8a8a92; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
   .status .who { font-weight: 600; }
+  .status .note { color: #8a8a92; font-size: 12px; margin-top: 5px; line-height: 1.5; }
   button { appearance: none; border: none; border-radius: 10px; padding: 13px 16px; font-size: 14px; font-weight: 600; cursor: pointer; width: 100%; font-family: inherit; transition: opacity 0.15s ease, transform 0.05s ease; }
   button.primary { background: #2f81f7; color: #fff; }
   button.primary:hover { background: #4b94f8; }
@@ -82,7 +83,7 @@ export const onboardingPage = `<!doctype html>
   function render(state) {
     if (state.status === "logged-in") {
       const who = state.email ? escapeHtml(state.email) : "Your Cursor account";
-      const expires = state.apiKeyExpiresAtMs ? " &middot; renews automatically before " + new Date(state.apiKeyExpiresAtMs).toLocaleDateString() : "";
+      const expires = state.apiKeyExpiresAtMs ? '<div class="note">Renews automatically before ' + new Date(state.apiKeyExpiresAtMs).toLocaleDateString() + "</div>" : "";
       setStatus('<span class="dot"></span><div class="label">Signed in</div><span class="who">' + who + "</span>" + expires, true);
       signinBtn.hidden = true;
       logoutBtn.hidden = false;
