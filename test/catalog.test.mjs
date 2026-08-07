@@ -70,7 +70,7 @@ test("rejects empty catalogs and skips duplicate model IDs", () => {
 });
 
 test("synchronizes only the bridge-owned provider and avoids unchanged rewrites", () => {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "composer-bridge-test-"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "modelferry-test-"));
   const file = path.join(directory, "opencode.json");
   fs.writeFileSync(file, JSON.stringify({ model: "other/default", plugin: ["keep-me"], provider: { other: { name: "Other" } } }));
   const registry = buildRegistry(normalizeCatalog(rawCatalog));

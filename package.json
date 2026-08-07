@@ -1,11 +1,11 @@
 {
-  "name": "cursor-composer-bridge",
+  "name": "modelferry",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A persistent OpenAI-compatible bridge from OpenCode to Cursor Composer.",
+  "description": "A persistent OpenAI-compatible bridge that ferries Cursor's model catalog into OpenCode.",
   "bin": {
-    "composer-bridge": "src/cli.mjs"
+    "modelferry": "src/cli.mjs"
   },
   "scripts": {
     "start": "node src/server.mjs",

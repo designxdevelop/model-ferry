@@ -36,9 +36,9 @@ async function setup() {
   const registry = buildRegistry(state.catalog);
   syncOpenCodeConfig(registry, defaults);
   installLaunchAgent();
-  console.log(`Composer Bridge installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
+  console.log(`Model Ferry installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
   console.log("Your existing OpenCode default model was preserved.");
-  console.log("Select the Cursor Models provider in OpenCode, then choose a model and variant.");
+  console.log("Select the Cursor provider in OpenCode, then choose a model and variant.");
 }
 
 function migrateKeychainKey() {
@@ -56,12 +56,12 @@ function installLaunchAgent() {
   fs.mkdirSync(path.dirname(launchAgentPath), { recursive: true });
   const node = process.execPath;
   const server = path.join(projectRoot, "src", "server.mjs");
-  const logDir = path.join(os.homedir(), "Library", "Logs", "ComposerBridge");
+  const logDir = path.join(os.homedir(), "Library", "Logs", "ModelFerry");
   fs.mkdirSync(logDir, { recursive: true });
   const plist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>Label</key><string>ai.dxd.cursor-composer-bridge</string>
+  <key>Label</key><string>ai.dxd.modelferry</string>
   <key>ProgramArguments</key><array><string>${xml(node)}</string><string>${xml(server)}</string></array>
   <key>WorkingDirectory</key><string>${xml(projectRoot)}</string>
   <key>RunAtLoad</key><true/>
@@ -74,7 +74,7 @@ function installLaunchAgent() {
   const domain = `gui/${process.getuid()}`;
   try { execFileSync("/bin/launchctl", ["bootout", domain, launchAgentPath], { stdio: "ignore" }); } catch {}
   execFileSync("/bin/launchctl", ["bootstrap", domain, launchAgentPath]);
-  execFileSync("/bin/launchctl", ["kickstart", "-k", `${domain}/ai.dxd.cursor-composer-bridge`]);
+  execFileSync("/bin/launchctl", ["kickstart", "-k", `${domain}/ai.dxd.modelferry`]);
 }
 
 async function status() {
@@ -83,7 +83,7 @@ async function status() {
     const response = await fetch(`http://${config.host}:${config.port}/health`);
     console.log(JSON.stringify(await response.json(), null, 2));
   } catch {
-    console.error("Composer Bridge is not responding.");
+    console.error("Model Ferry is not responding.");
     process.exitCode = 1;
   }
 }
@@ -127,7 +127,7 @@ async function models() {
 function restartLaunchAgent() {
   if (!fs.existsSync(launchAgentPath)) return;
   const domain = `gui/${process.getuid()}`;
-  try { execFileSync("/bin/launchctl", ["kickstart", "-k", `${domain}/ai.dxd.cursor-composer-bridge`]); } catch {}
+  try { execFileSync("/bin/launchctl", ["kickstart", "-k", `${domain}/ai.dxd.modelferry`]); } catch {}
 }
 
 async function uninstall() {
@@ -151,7 +151,7 @@ function xml(value) {
 }
 
 function help() {
-  console.log("Usage: composer-bridge <setup|status|refresh|models|uninstall>");
+  console.log("Usage: modelferry <setup|status|refresh|models|uninstall>");
 }
 
 function variantCount(registry) {

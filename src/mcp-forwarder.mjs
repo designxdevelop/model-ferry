@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import readline from "node:readline";
 
-const tools = safeJson(process.env.COMPOSER_BRIDGE_TOOLS, []);
-const callbackUrl = process.env.COMPOSER_BRIDGE_CALLBACK_URL || "";
-const callbackToken = process.env.COMPOSER_BRIDGE_CALLBACK_TOKEN || "";
-const captureId = process.env.COMPOSER_BRIDGE_CAPTURE_ID || "";
+const tools = safeJson(process.env.MODELFERRY_TOOLS, []);
+const callbackUrl = process.env.MODELFERRY_CALLBACK_URL || "";
+const callbackToken = process.env.MODELFERRY_CALLBACK_TOKEN || "";
+const captureId = process.env.MODELFERRY_CAPTURE_ID || "";
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", async (line) => {
@@ -14,7 +14,7 @@ rl.on("line", async (line) => {
     reply(message.id, {
       protocolVersion: "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "composer-bridge-client-tools", version: "0.1.0" }
+      serverInfo: { name: "modelferry-client-tools", version: "0.1.0" }
     });
     return;
   }

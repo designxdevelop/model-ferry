@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 
 export const projectRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
-export const configDir = path.join(os.homedir(), ".config", "cursor-composer-bridge");
+export const configDir = path.join(os.homedir(), ".config", "modelferry");
 export const configPath = path.join(configDir, "config.json");
 export const credentialPath = path.join(configDir, "credentials");
 export const catalogPath = path.join(configDir, "catalog.json");
-export const launchAgentPath = path.join(os.homedir(), "Library", "LaunchAgents", "ai.dxd.cursor-composer-bridge.plist");
+export const launchAgentPath = path.join(os.homedir(), "Library", "LaunchAgents", "ai.dxd.modelferry.plist");
 export const openCodeConfigPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
 
 export const defaults = {
@@ -28,8 +28,8 @@ export function loadConfig() {
   return {
     ...defaults,
     ...stored,
-    host: process.env.COMPOSER_BRIDGE_HOST || stored.host || defaults.host,
-    port: Number(process.env.COMPOSER_BRIDGE_PORT || stored.port || defaults.port)
+    host: process.env.MODELFERRY_HOST || stored.host || defaults.host,
+    port: Number(process.env.MODELFERRY_PORT || stored.port || defaults.port)
   };
 }
 

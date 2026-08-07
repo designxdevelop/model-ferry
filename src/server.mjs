@@ -43,7 +43,7 @@ const server = http.createServer((request, response) => {
 });
 
 server.listen(config.port, config.host, () => {
-  console.log(`Composer Bridge listening on http://${config.host}:${config.port}/v1`);
+  console.log(`Model Ferry listening on http://${config.host}:${config.port}/v1`);
 });
 
 async function route(request, response) {
@@ -52,7 +52,7 @@ async function route(request, response) {
     return json(response, 200, {
       ok: Boolean(cursorApiKey && registry.models.length),
       ready: Boolean(cursorApiKey && registry.models.length),
-      service: "Composer Bridge",
+      service: "Model Ferry",
       status: !cursorApiKey ? "missing_cursor_api_key" : registry.models.length ? "ready" : "missing_model_catalog",
       catalog: catalogState ? { ...catalogSummary(catalogState, registry), lastRefreshError } : null,
       sessions: sessions.size
@@ -111,10 +111,10 @@ async function chatCompletion(request, response, body) {
       command: process.execPath,
       args: [forwarderPath],
       env: {
-        COMPOSER_BRIDGE_TOOLS: JSON.stringify(tools),
-        COMPOSER_BRIDGE_CALLBACK_URL: `http://${config.host}:${config.port}/internal/tool-capture`,
-        COMPOSER_BRIDGE_CALLBACK_TOKEN: callbackToken,
-        COMPOSER_BRIDGE_CAPTURE_ID: captureId
+        MODELFERRY_TOOLS: JSON.stringify(tools),
+        MODELFERRY_CALLBACK_URL: `http://${config.host}:${config.port}/internal/tool-capture`,
+        MODELFERRY_CALLBACK_TOKEN: callbackToken,
+        MODELFERRY_CAPTURE_ID: captureId
       }
     }
   } : undefined;
@@ -204,7 +204,7 @@ async function getSession(key, selection, cwd) {
   const agent = await Agent.create({
     apiKey: cursorApiKey,
     model: selection,
-    name: "OpenCode Composer Bridge",
+    name: "OpenCode Model Ferry",
     local: { cwd, settingSources: [] }
   });
   const session = { agent, touchedAt: Date.now(), force: false };
@@ -281,7 +281,7 @@ function sendError(response, error) {
 }
 
 function apiError(error) {
-  return { message: error.message || "Internal error", type: "composer_bridge_error", code: error.code || "internal_error" };
+  return { message: error.message || "Internal error", type: "modelferry_error", code: error.code || "internal_error" };
 }
 
 function httpError(status, message, code) {

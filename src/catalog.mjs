@@ -123,7 +123,7 @@ export function syncOpenCodeConfig(registry, config, { backup = true, file = ope
   const current = readJsonStrict(file, {});
   current.provider ||= {};
   const nextProvider = {
-    name: "Cursor Models",
+    name: "Cursor",
     npm: "@ai-sdk/openai-compatible",
     options: { baseURL: `http://${config.host}:${config.port}/v1`, apiKey: config.localToken },
     models: providerModels(registry, { exposeVariantAliases: config.exposeVariantAliases })
@@ -134,10 +134,10 @@ export function syncOpenCodeConfig(registry, config, { backup = true, file = ope
   fs.mkdirSync(path.dirname(file), { recursive: true });
   let backupPath;
   if (backup && fs.existsSync(file)) {
-    backupPath = `${file}.composer-bridge-backup.${Date.now()}`;
+    backupPath = `${file}.modelferry-backup.${Date.now()}`;
     fs.copyFileSync(file, backupPath);
   }
-  const temporary = `${file}.composer-bridge-${process.pid}.tmp`;
+  const temporary = `${file}.modelferry-${process.pid}.tmp`;
   fs.writeFileSync(temporary, `${JSON.stringify(current, null, 2)}\n`, { mode: 0o600 });
   fs.renameSync(temporary, file);
   return { changed: true, backupPath };
