@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import { Agent, Cursor } from "@cursor/sdk";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { authStatus, login as renewLogin, needsRenewal } from "./auth.mjs";
-import { loadConfig } from "./config.mjs";
+import { configPath, loadConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
 import { onboardingPage } from "./onboard.mjs";
 import {
@@ -30,6 +31,19 @@ let refreshInFlight = null;
 let authLoginInFlight = null;
 let lastAuthError = null;
 
+const server = http.createServer((request, response) => {
+  route(request, response).catch((error) => sendError(response, error));
+});
+
+const requestedPort = config.port;
+const resolvedPort = await listenWithFallback(server, requestedPort, config.host);
+if (resolvedPort !== requestedPort) {
+  config.port = resolvedPort;
+  persistPort(resolvedPort);
+  console.log(`Port ${requestedPort} was in use; using ${resolvedPort} instead.`);
+}
+console.log(`Model Ferry listening on http://${config.host}:${resolvedPort}/v1`);
+
 try {
   catalogState = await loadCatalog();
   registry = buildRegistry(catalogState.catalog);
@@ -40,13 +54,37 @@ try {
 }
 maybeRenewAuth().catch(() => {});
 
-const server = http.createServer((request, response) => {
-  route(request, response).catch((error) => sendError(response, error));
-});
+function listenWithFallback(server, initialPort, host, maxTries = 20) {
+  return new Promise((resolve, reject) => {
+    let attempt = 0;
+    const onError = (error) => {
+      if (error.code === "EADDRINUSE" && attempt < maxTries - 1) {
+        attempt += 1;
+        server.listen(initialPort + attempt, host);
+      } else {
+        server.removeListener("listening", onListening);
+        reject(error);
+      }
+    };
+    const onListening = () => {
+      server.removeListener("error", onError);
+      resolve(initialPort + attempt);
+    };
+    server.on("error", onError);
+    server.once("listening", onListening);
+    server.listen(initialPort, host);
+  });
+}
 
-server.listen(config.port, config.host, () => {
-  console.log(`Model Ferry listening on http://${config.host}:${config.port}/v1`);
-});
+function persistPort(port) {
+  try {
+    let stored = {};
+    try { stored = JSON.parse(fs.readFileSync(configPath, "utf8")); } catch {}
+    if (stored.port === port) return;
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, `${JSON.stringify({ ...stored, port }, null, 2)}\n`, { mode: 0o600 });
+  } catch {}
+}
 
 async function route(request, response) {
   const url = new URL(request.url || "/", `http://${request.headers.host || `${config.host}:${config.port}`}`);

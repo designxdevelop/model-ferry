@@ -30,7 +30,7 @@ The bridge never stores Cursor credentials itself. It relies on the Cursor SDK's
 1. `CURSOR_API_KEY` environment variable
 2. A stored browser login from `Cursor.auth.login()` (`~/.cursor/sdk/auth.json`)
 
-A visual setup page is served at `http://127.0.0.1:8791/onboard`. `npm run setup` and `npm run login` open it in your browser on first use — sign in with Cursor there and the page shows your account, key expiry, and model count.
+A visual setup page is served at `http://127.0.0.1:8791/onboard`. `npm run setup` and `npm run login` open it in your browser on first use — sign in with Cursor there and the page shows your account, key expiry, and model count. Sign-in itself happens on Cursor's website; the minted key is labeled **Model Ferry** in your Cursor dashboard API-keys list.
 
 ```sh
 npm run login    # browser login; always mints a fresh 90-day API key
@@ -42,7 +42,11 @@ The bridge runs as a `launchd` launch agent, which does not inherit shell enviro
 
 ### Auto-renewal
 
-Browser-login keys expire after 90 days. The bridge automatically re-runs the browser login and mints a fresh key when expiry is within the renewal window (3 days by default, `loginRenewMs` in `~/.config/modelferry/config.json`) — at startup, on its six-hour refresh cycle, and before a chat run that would otherwise use an expiring key. If renewal is missed and the key lapses, chat requests fail with a clear message pointing to the setup page and `modelferry login`.
+Browser-login keys expire after 90 days. The bridge automatically re-runs the browser login and mints a fresh key when expiry is within the renewal window (3 days by default, `loginRenewMs` in `~/.config/modelferry/config.json`) — at startup, on its six-hour refresh cycle, and before a chat run that would otherwise use an expiring key. If renewal is missed and the key lapses, chat requests fail with HTTP `503` and error code `not_authenticated` (or `auth_renewal_failed` when a renewal attempt itself failed), with a message pointing to the setup page and `modelferry login`.
+
+## Ports
+
+The bridge listens on `127.0.0.1:8791` by default. If that port is already in use, it scans the next 19 ports and binds the first free one, then records the resolved port in `~/.config/modelferry/config.json` so the OpenCode provider `baseURL`, the onboarding page, and the CLI commands all agree on it.
 
 ## Use
 

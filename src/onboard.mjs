@@ -66,7 +66,7 @@ export const onboardingPage = `<!doctype html>
         : '<div class="label">Not signed in</div>Sign in to bring Cursor models into OpenCode.';
       signinBtn.hidden = renewing;
       logoutBtn.hidden = true;
-      metaEl.innerHTML = "";
+      metaEl.innerHTML = "Sign-in happens on Cursor&rsquo;s website. Your key appears as <b>Model Ferry</b> in the Cursor dashboard.";
     }
   }
 
