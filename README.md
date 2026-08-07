@@ -9,7 +9,17 @@ It fixes two behaviors of API for Cursor:
 
 ## Install
 
+**Quick install** — clones the repo to `~/.modelferry`, installs dependencies, and runs setup:
+
 ```sh
+curl -fsSL https://raw.githubusercontent.com/designxdevelop/model-ferry/main/install.sh | bash
+```
+
+**Manual setup** — clone, install, and sign in:
+
+```sh
+git clone https://github.com/designxdevelop/model-ferry.git
+cd model-ferry
 npm install
 npm run setup
 ```
