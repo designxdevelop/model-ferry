@@ -10,6 +10,7 @@ set -euo pipefail
 
 REPO_URL="https://github.com/designxdevelop/model-ferry.git"
 INSTALL_DIR="${MODELFERRY_DIR:-$HOME/.modelferry}"
+BIN_DIR="${MODELFERRY_BIN_DIR:-$HOME/.local/bin}"
 MIN_NODE_MAJOR=22
 
 say() { printf '\033[1;34mmodelferry\033[0m %s\n' "$*"; }
@@ -37,13 +38,24 @@ fi
 say "Installing dependencies"
 (cd "$INSTALL_DIR" && npm install)
 
+say "Linking modelferry onto your PATH"
+mkdir -p "$BIN_DIR"
+ln -sfn "$INSTALL_DIR/src/cli.mjs" "$BIN_DIR/modelferry"
+chmod +x "$INSTALL_DIR/src/cli.mjs"
+case ":$PATH:" in
+  *":$BIN_DIR:"*) ;;
+  *)
+    say "Add $BIN_DIR to your PATH (for example: echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc)"
+    ;;
+esac
+
 say "Running setup — a browser window may open for Cursor sign-in"
 (cd "$INSTALL_DIR" && npm run setup)
 
-cat <<'EOF'
+cat <<EOF
 
 modelferry: installed. Next steps:
   1. Start or reload OpenCode.
   2. Pick the Cursor provider, then choose a model and a variant.
-  3. Run `modelferry status` (or `cd ~/.modelferry && npm run status`) to check auth and bridge health.
+  3. Run \`modelferry status\` (or \`cd $INSTALL_DIR && npm run status\`) to check auth and bridge health.
 EOF

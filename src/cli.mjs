@@ -6,14 +6,11 @@ import path from "node:path";
 import process from "node:process";
 import { authStatus, login as browserLogin, logout as clearAuth } from "./auth.mjs";
 import {
-  configPath,
-  defaults,
-  ensurePrivateDirectory,
+  ensureConfig,
   launchAgentPath,
   loadConfig,
   openCodeConfigPath,
-  projectRoot,
-  writePrivateFile
+  projectRoot
 } from "./config.mjs";
 import { buildRegistry, fetchCatalog, readCachedCatalog, syncOpenCodeConfig } from "./catalog.mjs";
 
@@ -28,8 +25,7 @@ else if (command === "uninstall") await uninstall();
 else help();
 
 async function setup() {
-  ensurePrivateDirectory();
-  writePrivateFile(configPath, `${JSON.stringify(defaults, null, 2)}\n`);
+  const config = ensureConfig();
   const wasAuthenticated = (await authStatus()).status === "logged-in";
   installLaunchAgent();
   let auth = await authStatus();
@@ -42,7 +38,7 @@ async function setup() {
   }
   const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
-  syncOpenCodeConfig(registry, defaults);
+  syncOpenCodeConfig(registry, config);
   restartLaunchAgent();
   console.log(`Model Ferry installed with ${registry.models.length} Cursor models and ${variantCount(registry)} variants.`);
   if (!wasAuthenticated) {
@@ -60,6 +56,7 @@ async function setup() {
 }
 
 async function login() {
+  ensureConfig();
   const already = await authStatus();
   if (already.status === "logged-in") {
     await browserLogin();
@@ -72,9 +69,10 @@ async function login() {
     await browserLogin();
   }
   const auth = await authStatus();
+  const config = loadConfig();
   const state = await fetchCatalog();
   const registry = buildRegistry(state.catalog);
-  syncOpenCodeConfig(registry, loadConfig());
+  syncOpenCodeConfig(registry, config);
   restartLaunchAgent();
   console.log(auth.via === "env"
     ? "Authenticated via CURSOR_API_KEY."

@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 import { Agent, Cursor } from "@cursor/sdk";
 import crypto from "node:crypto";
-import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { authStatus, login as renewLogin, needsRenewal } from "./auth.mjs";
-import { configPath, loadConfig, updateConfig } from "./config.mjs";
+import { ensureConfig, updateConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
-import { onboardingPage } from "./onboard.mjs";
+import { renderOnboardingPage } from "./onboard.mjs";
 import {
   completionEnvelope,
   normalizeModel,
@@ -19,7 +18,7 @@ import {
   workingDirectory
 } from "./protocol.mjs";
 
-const config = loadConfig();
+const config = ensureConfig();
 const sessions = new Map();
 const captures = new Map();
 const callbackToken = crypto.randomBytes(24).toString("hex");
@@ -78,11 +77,7 @@ function listenWithFallback(server, initialPort, host, maxTries = 20) {
 
 function persistPort(port) {
   try {
-    let stored = {};
-    try { stored = JSON.parse(fs.readFileSync(configPath, "utf8")); } catch {}
-    if (stored.port === port) return;
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, `${JSON.stringify({ ...stored, port }, null, 2)}\n`, { mode: 0o600 });
+    Object.assign(config, updateConfig({ port }));
   } catch {}
 }
 
@@ -108,9 +103,10 @@ async function route(request, response) {
     });
   }
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/onboard")) {
-    return html(response, 200, onboardingPage);
+    return html(response, 200, renderOnboardingPage(config.localToken));
   }
   if (request.method === "GET" && url.pathname === "/v1/auth/status") {
+    requireLocalAuth(request);
     const auth = await authStatus();
     return json(response, 200, {
       ...auth,
@@ -122,6 +118,7 @@ async function route(request, response) {
     });
   }
   if (request.method === "POST" && url.pathname === "/v1/config") {
+    requireLocalAuth(request);
     const body = await readJson(request);
     const patch = {};
     if (typeof body.stripSystemPrompt === "boolean") patch.stripSystemPrompt = body.stripSystemPrompt;
@@ -129,10 +126,12 @@ async function route(request, response) {
     return json(response, 200, { stripSystemPrompt: config.stripSystemPrompt });
   }
   if (request.method === "POST" && url.pathname === "/v1/auth/login") {
+    requireLocalAuth(request);
     startAuthLogin();
     return json(response, 200, { started: true });
   }
   if (request.method === "POST" && url.pathname === "/v1/auth/logout") {
+    requireLocalAuth(request);
     await Cursor.auth.logout();
     return json(response, 200, { ok: true });
   }
@@ -282,6 +281,8 @@ async function getSession(key, selection, cwd) {
   const agent = await Agent.create({
     model: selection,
     name: "OpenCode Model Ferry",
+    // OpenCode owns tool execution via MCP; never offer Cursor built-ins.
+    tools: ["mcp"],
     local: { cwd, settingSources: [] }
   });
   const session = { agent, touchedAt: Date.now(), force: false };

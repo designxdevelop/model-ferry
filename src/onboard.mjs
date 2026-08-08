@@ -1,4 +1,8 @@
-export const onboardingPage = `<!doctype html>
+export function renderOnboardingPage(localToken) {
+  return onboardingPageTemplate.replaceAll("__MODELFERRY_TOKEN__", JSON.stringify(localToken));
+}
+
+const onboardingPageTemplate = `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -90,10 +94,12 @@ export const onboardingPage = `<!doctype html>
   const logoutBtn = document.getElementById("logout");
   const settingsCard = document.getElementById("settingsCard");
   const stripSystemPromptEl = document.getElementById("stripSystemPrompt");
+  const localToken = __MODELFERRY_TOKEN__;
+  const authHeaders = { authorization: "Bearer " + localToken };
   let renewing = false;
 
   async function fetchState() {
-    const res = await fetch("/v1/auth/status");
+    const res = await fetch("/v1/auth/status", { headers: authHeaders });
     return res.json();
   }
 
@@ -132,13 +138,13 @@ export const onboardingPage = `<!doctype html>
   }
 
   signinBtn.addEventListener("click", async () => {
-    try { await fetch("/v1/auth/login", { method: "POST" }); } catch {}
+    try { await fetch("/v1/auth/login", { method: "POST", headers: authHeaders }); } catch {}
     renewing = true;
     render(await fetchState());
   });
 
   logoutBtn.addEventListener("click", async () => {
-    await fetch("/v1/auth/logout", { method: "POST" });
+    await fetch("/v1/auth/logout", { method: "POST", headers: authHeaders });
     refresh();
   });
 
@@ -147,7 +153,7 @@ export const onboardingPage = `<!doctype html>
     try {
       const res = await fetch("/v1/config", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...authHeaders },
         body: JSON.stringify({ stripSystemPrompt: target })
       });
       if (!res.ok) throw new Error("config update failed");
@@ -168,3 +174,4 @@ export const onboardingPage = `<!doctype html>
 </body>
 </html>
 `;
+

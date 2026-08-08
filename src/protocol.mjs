@@ -20,12 +20,21 @@ export function requestSessionKey(request, body) {
 
 export function workingDirectory(request) {
   const value = [
+    request.headers["x-opencode-directory"],
     request.headers["x-working-directory"],
     request.headers["x-workspace-path"],
     request.headers["x-project-path"],
     process.cwd()
   ].find((item) => typeof item === "string" && item.trim());
-  return value.trim();
+  return decodeDirectoryHeader(value.trim());
+}
+
+function decodeDirectoryHeader(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export function parseTools(body) {
