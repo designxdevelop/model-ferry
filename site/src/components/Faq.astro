@@ -18,7 +18,11 @@ const faqs = [
   },
   {
     q: "Is anything sent off my machine?",
-    a: "Only your model prompts. As with any Cursor agent run, prompts and tool activity are sent to Cursor's servers (Anysphere) for model inference. The Cursor SDK client and agent loop run locally. The bridge has no telemetry or analytics, and the local HTTP API binds to 127.0.0.1."
+    a: "Only your model prompts. As with any Cursor agent run, prompts and tool activity go to Cursor's servers (Anysphere) for inference. The SDK client and agent loop run locally. The bridge has no telemetry, binds to 127.0.0.1, and uses a per-install bearer token. Cursor agents are limited to MCP so OpenCode keeps shell and file execution."
+  },
+  {
+    q: "How does local auth work?",
+    a: "Setup mints a random bearer token into ~/.config/modelferry/config.json and writes it into OpenCode's cursorapi provider as apiKey. Chat, models, catalog refresh, and setup-page auth or config changes all require that token."
   },
   {
     q: "What if the default port is taken?",

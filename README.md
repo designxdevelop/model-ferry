@@ -91,7 +91,9 @@ Cursor's agent applies its own system prompt on every run, so the bridge exclude
 
 ## Security
 
-Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user. The HTTP API binds only to `127.0.0.1` by default and requires a per-install bearer token (minted on first setup, written into OpenCode's `cursorapi` provider as `apiKey`). Auth and config mutation routes on the setup page use that same token. Cursor agents created by the bridge are limited to MCP tools so OpenCode keeps ownership of shell and file actions.
+Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user.
+
+The HTTP API binds to `127.0.0.1` by default. First setup mints a random bearer token into `~/.config/modelferry/config.json` and writes it into OpenCode's `cursorapi` provider as `apiKey`. Chat, models, catalog refresh, and setup-page login, logout, and config routes all require that token. Cursor agents created by the bridge are limited to MCP tools (`tools: ["mcp"]`), so OpenCode keeps ownership of shell and file actions.
 
 ## Scope
 

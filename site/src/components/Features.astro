@@ -18,11 +18,11 @@ const features = [
   },
   {
     title: "Loopback only",
-    body: "The HTTP API binds to 127.0.0.1 and requires a local bearer token. Nothing else on your network can reach it."
+    body: "Binds to 127.0.0.1 with a per-install bearer token minted on setup. Auth and config routes require that token. Nothing else on your network can reach the bridge."
   },
   {
-    title: "Function tools",
-    body: "The bridge exposes OpenCode function tools to Cursor agents through a temporary MCP server and returns the results to OpenCode for execution."
+    title: "OpenCode owns tools",
+    body: "Cursor agents get MCP only. Shell, edit, and other Cursor built-ins stay off. OpenCode function tools run in OpenCode, not in the Cursor agent."
   }
 ];
 ---
