@@ -29,7 +29,7 @@ The first time, `setup` signs you in with your Cursor account: a browser opens t
 The setup command creates:
 
 - `~/Library/LaunchAgents/ai.dxd.modelferry.plist`
-- a `cursorapi` provider in `~/.config/opencode/opencode.json`
+- a `cursorapi` provider in `~/.config/opencode/opencode.json` (V1 `provider.cursorapi` and OpenCode 2.0 `providers.cursorapi`)
 
 It backs up the OpenCode config before changing it and preserves the existing default model exactly.
 
@@ -72,7 +72,7 @@ Variant names are generated from Cursor's canonical parameters. Only combination
 
 ## Catalog refresh
 
-The bridge refreshes Cursor's catalog at startup and every six hours. It updates only `provider.cursorapi` in OpenCode's config and preserves the rest of the file. The last successful catalog is cached at `~/.config/modelferry/catalog.json`, so temporary Cursor API failures do not make existing models unavailable.
+The bridge refreshes Cursor's catalog at startup and every six hours. It updates only the bridge-owned `cursorapi` entries in OpenCode's config (`provider.cursorapi` for V1 and `providers.cursorapi` for OpenCode 2.0) and preserves the rest of the file. The last successful catalog is cached at `~/.config/modelferry/catalog.json`, so temporary Cursor API failures do not make existing models unavailable.
 
 ```sh
 npm run models   # list cached models and native variants
@@ -89,6 +89,21 @@ For clients without native variant support, the bridge also understands determin
 
 Cursor's agent applies its own system prompt on every run, so the bridge excludes the outer client's system message by default to avoid sending the model two competing system prompts. The `<available_skills>` block and any `Instructions from:` project guidance (AGENTS.md) from the outer client are preserved so OpenCode skills and project rules stay visible to the Cursor agent. To send the full outer system message through instead, set `"stripSystemPrompt": false` in `~/.config/modelferry/config.json`. The setup page at `http://127.0.0.1:8791/onboard` exposes this as a toggle, so you can flip it without editing the config file.
 
+### Cache-friendly turns
+
+OpenCode agentic loops (user → tools → answer) stay on **one** Cursor Agent run. When the model calls an OpenCode tool, Ferry returns `tool_calls` to OpenCode but keeps the Cursor run alive and blocks the MCP call until OpenCode posts the tool result on the next `/v1/chat/completions` request. That avoids re-seeding the full transcript on every tool hop.
+
+Sticky session routing uses OpenCode 2.0 cache-affinity headers when present:
+
+- `X-Session-Id` / `x-session-id`
+- `x-session-affinity`
+- legacy `x-opencode-session` / `x-opencode-session-id`
+- body `prompt_cache_key` when the client sends it
+
+Sub-agent parent correlation is recorded from `x-parent-session-id` but does not replace the child session id.
+
+On startup Ferry probes whether local `Agent.send()` retains conversation across turns (`npm run probe:retention`). If retention works, follow-up user messages on the same sticky session can send a delta-only prompt; otherwise each new user turn uses a cache-stable full seed. Tool hops inside a loop still use in-flight resume either way.
+
 ## Security
 
 Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user.
@@ -100,3 +115,14 @@ The HTTP API binds to `127.0.0.1` by default. First setup mints a random bearer 
 The bridge implements `/health`, `/v1/models`, `/v1/catalog/refresh`, and streaming/non-streaming `/v1/chat/completions`. OpenCode function tools are exposed to Cursor agents through a temporary MCP server and returned to OpenCode for execution.
 
 The catalog reflects models available to the Cursor API key. Cursor subscription limits, model eligibility, and usage accounting still apply.
+
+### OpenCode 2.0
+
+Ferry writes both config shapes so V1 and the OpenCode 2.0 beta (`opencode2` / `@opencode-ai/cli@next`) can select Cursor models:
+
+| OpenCode | Config key | Package |
+| --- | --- | --- |
+| 1.x | `provider.cursorapi` | `@ai-sdk/openai-compatible` |
+| 2.0 | `providers.cursorapi` | `@opencode-ai/ai/providers/openai-compatible` |
+
+V2 model metadata uses `capabilities.tools` / `capabilities.input` / `capabilities.output` and array `variants` with `settings.cursor_params`. OpenCode 2 still accepts the V1 provider block; writing both keeps either CLI working after `modelferry refresh`.

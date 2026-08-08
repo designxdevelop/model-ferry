@@ -62,6 +62,7 @@ export function resolveSelection(registry, requestedModel, requestBody = {}) {
   return match ? { id: base.id, ...(params.length ? { params } : {}) } : null;
 }
 
+/** OpenCode 1.x provider.models shape (`provider.cursorapi`). */
 export function providerModels(registry, { exposeVariantAliases = false } = {}) {
   const result = {};
   for (const model of registry.models) {
@@ -84,6 +85,46 @@ export function providerModels(registry, { exposeVariantAliases = false } = {}) 
           limit: modelLimits(model),
           modalities: { input: ["text"], output: ["text"] },
           options: { cursor_params: variant.params }
+        };
+      }
+    }
+  }
+  return result;
+}
+
+/** OpenCode 2.0 providers.models shape (`providers.cursorapi`). */
+export function providerModelsV2(registry, { exposeVariantAliases = false } = {}) {
+  const result = {};
+  for (const model of registry.models) {
+    const hasSelectableVariants = model.variants.length > 1 || model.variants.some((variant) => variant.params.length);
+    const limits = modelLimits(model);
+    result[model.id] = {
+      name: model.displayName,
+      limit: limits,
+      capabilities: {
+        tools: true,
+        input: ["text"],
+        output: ["text"]
+      },
+      ...(hasSelectableVariants ? {
+        variants: model.variants.map((variant) => ({
+          id: variant.id,
+          settings: { cursor_params: variant.params }
+        }))
+      } : {})
+    };
+    if (exposeVariantAliases && hasSelectableVariants) {
+      for (const variant of model.variants) {
+        result[`${model.id}@${variant.id}`] = {
+          modelID: model.id,
+          name: `${model.displayName} · ${variant.displayName}`,
+          limit: limits,
+          capabilities: {
+            tools: true,
+            input: ["text"],
+            output: ["text"]
+          },
+          settings: { cursor_params: variant.params }
         };
       }
     }
@@ -130,15 +171,29 @@ export async function loadCatalog() {
 export function syncOpenCodeConfig(registry, config, { backup = true, file = openCodeConfigPath } = {}) {
   const current = readJsonStrict(file, {});
   current.provider ||= {};
-  const nextProvider = {
+  current.providers ||= {};
+  const baseURL = `http://${config.host}:${config.port}/v1`;
+  const modelsV1 = providerModels(registry, { exposeVariantAliases: config.exposeVariantAliases });
+  const modelsV2 = providerModelsV2(registry, { exposeVariantAliases: config.exposeVariantAliases });
+  // V1 shape — OpenCode 1.x and V2's V1-compat reader.
+  const nextProviderV1 = {
     name: "Cursor",
     npm: "@ai-sdk/openai-compatible",
-    options: { baseURL: `http://${config.host}:${config.port}/v1`, apiKey: config.localToken },
-    models: providerModels(registry, { exposeVariantAliases: config.exposeVariantAliases })
+    options: { baseURL, apiKey: config.localToken },
+    models: modelsV1
   };
-  const existing = current.provider.cursorapi;
-  if (JSON.stringify(existing) === JSON.stringify(nextProvider)) return { changed: false };
-  current.provider.cursorapi = nextProvider;
+  // Native OpenCode 2.0 shape — openai-compatible package + cache-friendly session headers from the client.
+  const nextProviderV2 = {
+    name: "Cursor",
+    package: "@opencode-ai/ai/providers/openai-compatible",
+    settings: { baseURL, apiKey: config.localToken },
+    models: modelsV2
+  };
+  const unchanged = JSON.stringify(current.provider.cursorapi) === JSON.stringify(nextProviderV1)
+    && JSON.stringify(current.providers.cursorapi) === JSON.stringify(nextProviderV2);
+  if (unchanged) return { changed: false };
+  current.provider.cursorapi = nextProviderV1;
+  current.providers.cursorapi = nextProviderV2;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   let backupPath;
   if (backup && fs.existsSync(file)) {

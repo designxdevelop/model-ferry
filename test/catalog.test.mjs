@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { buildRegistry, normalizeCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "../src/catalog.mjs";
+import { buildRegistry, normalizeCatalog, providerModels, providerModelsV2, resolveSelection, syncOpenCodeConfig } from "../src/catalog.mjs";
 
 const rawCatalog = [{
   id: "gpt-test",
@@ -82,8 +82,21 @@ test("synchronizes only the bridge-owned provider and avoids unchanged rewrites"
   assert.deepEqual(saved.plugin, ["keep-me"]);
   assert.equal(saved.provider.other.name, "Other");
   assert.ok(saved.provider.cursorapi.models["gpt-test"].variants["high-fast"]);
+  assert.equal(saved.provider.cursorapi.npm, "@ai-sdk/openai-compatible");
+  assert.equal(saved.providers.cursorapi.package, "@opencode-ai/ai/providers/openai-compatible");
+  assert.equal(saved.providers.cursorapi.settings.baseURL, "http://127.0.0.1:8791/v1");
+  assert.equal(saved.providers.cursorapi.models["gpt-test"].capabilities.tools, true);
+  assert.ok(saved.providers.cursorapi.models["gpt-test"].variants.some((variant) => variant.id === "high-fast"));
   const before = fs.statSync(file).mtimeMs;
   const second = syncOpenCodeConfig(registry, config, { backup: false, file });
   assert.equal(second.changed, false);
   assert.equal(fs.statSync(file).mtimeMs, before);
+});
+
+test("builds OpenCode 2.0 provider model metadata", () => {
+  const registry = buildRegistry(normalizeCatalog(rawCatalog));
+  const v2 = providerModelsV2(registry);
+  assert.deepEqual(v2["gpt-test"].capabilities, { tools: true, input: ["text"], output: ["text"] });
+  assert.equal(v2["gpt-test"].variants.find((variant) => variant.id === "high-fast").settings.cursor_params[0].id, "reasoning");
+  assert.equal(v2["plain-model"].variants, undefined);
 });

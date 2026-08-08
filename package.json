@@ -22,6 +22,7 @@
     "refresh": "node src/cli.mjs refresh",
     "models": "node src/cli.mjs models",
     "uninstall": "node src/cli.mjs uninstall",
+    "probe:retention": "node scripts/probe-retention.mjs",
     "test": "node --test"
   },
   "dependencies": {

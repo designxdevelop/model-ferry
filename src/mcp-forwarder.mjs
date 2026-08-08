@@ -3,8 +3,10 @@ import readline from "node:readline";
 
 const tools = safeJson(process.env.MODELFERRY_TOOLS, []);
 const callbackUrl = process.env.MODELFERRY_CALLBACK_URL || "";
+const waitUrl = process.env.MODELFERRY_WAIT_URL || "";
 const callbackToken = process.env.MODELFERRY_CALLBACK_TOKEN || "";
 const captureId = process.env.MODELFERRY_CAPTURE_ID || "";
+const waitTimeoutMs = Number(process.env.MODELFERRY_WAIT_TIMEOUT_MS || 240_000);
 const rl = readline.createInterface({ input: process.stdin });
 
 rl.on("line", async (line) => {
@@ -30,13 +32,26 @@ rl.on("line", async (line) => {
       return;
     }
     try {
-      const response = await fetch(callbackUrl, {
+      const captureResponse = await fetch(callbackUrl, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${callbackToken}` },
         body: JSON.stringify({ captureId, name, arguments: args })
       });
-      if (!response.ok) throw new Error(`callback returned ${response.status}`);
-      reply(message.id, { content: [{ type: "text", text: "FORWARDED_TO_OPENCODE" }], isError: false });
+      if (!captureResponse.ok) throw new Error(`callback returned ${captureResponse.status}`);
+
+      const waitResponse = await fetch(waitUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${callbackToken}` },
+        body: JSON.stringify({ captureId }),
+        signal: AbortSignal.timeout(waitTimeoutMs)
+      });
+      if (!waitResponse.ok) throw new Error(`wait returned ${waitResponse.status}`);
+      const payload = await waitResponse.json();
+      const text = typeof payload.content === "string" ? payload.content : JSON.stringify(payload.content ?? "");
+      reply(message.id, {
+        content: [{ type: "text", text }],
+        isError: Boolean(payload.isError)
+      });
     } catch (error) {
       fail(message.id, `Could not forward tool call: ${error.message}`);
     }

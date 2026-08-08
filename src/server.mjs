@@ -10,16 +10,29 @@ import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModel
 import { renderOnboardingPage } from "./onboard.mjs";
 import {
   completionEnvelope,
+  isToolContinuation,
+  latestToolResults,
   normalizeModel,
   openAiToolCall,
   parseTools,
-  renderTranscript,
+  renderDeltaPrompt,
+  renderSeedPrompt,
+  requestParentSessionKey,
   requestSessionKey,
+  toolsFingerprint,
   workingDirectory
 } from "./protocol.mjs";
+import { resolveRetentionOk } from "./retention.mjs";
+import {
+  contentForPendingTool,
+  createPendingToolSlot,
+  createRunPump,
+  waitForToolOrDone
+} from "./turn.mjs";
 
 const config = ensureConfig();
 const sessions = new Map();
+/** @type {Map<string, { slot: ReturnType<typeof createPendingToolSlot>, openAiCall: object }>} */
 const captures = new Map();
 const callbackToken = crypto.randomBytes(24).toString("hex");
 const forwarderPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "mcp-forwarder.mjs");
@@ -52,6 +65,12 @@ try {
   lastRefreshError = error.message;
 }
 maybeRenewAuth().catch(() => {});
+resolveRetentionOk(config).then((ok) => {
+  console.log(`Local Agent retention probe: ${ok ? "PASS (delta follow-ups enabled)" : "FAIL (full seed each user turn)"}`);
+}).catch((error) => {
+  console.log(`Local Agent retention probe skipped: ${error.message}`);
+  config.retentionOk = false;
+});
 
 function listenWithFallback(server, initialPort, host, maxTries = 20) {
   return new Promise((resolve, reject) => {
@@ -99,7 +118,8 @@ async function route(request, response) {
         ...(authLoginInFlight ? { renewing: true } : {})
       },
       catalog: catalogState ? { ...catalogSummary(catalogState, registry), lastRefreshError } : null,
-      sessions: sessions.size
+      sessions: sessions.size,
+      retentionOk: config.retentionOk ?? null
     });
   }
   if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/onboard")) {
@@ -114,6 +134,7 @@ async function route(request, response) {
       lastAuthError,
       ready: auth.status === "logged-in" && registry.models.length > 0,
       stripSystemPrompt: config.stripSystemPrompt,
+      retentionOk: config.retentionOk ?? null,
       catalog: catalogState ? catalogSummary(catalogState, registry) : null
     });
   }
@@ -122,8 +143,12 @@ async function route(request, response) {
     const body = await readJson(request);
     const patch = {};
     if (typeof body.stripSystemPrompt === "boolean") patch.stripSystemPrompt = body.stripSystemPrompt;
+    if (typeof body.retentionOk === "boolean") patch.retentionOk = body.retentionOk;
     if (Object.keys(patch).length) Object.assign(config, updateConfig(patch));
-    return json(response, 200, { stripSystemPrompt: config.stripSystemPrompt });
+    return json(response, 200, {
+      stripSystemPrompt: config.stripSystemPrompt,
+      retentionOk: config.retentionOk ?? null
+    });
   }
   if (request.method === "POST" && url.pathname === "/v1/auth/login") {
     requireLocalAuth(request);
@@ -152,10 +177,23 @@ async function route(request, response) {
   if (request.method === "POST" && url.pathname === "/internal/tool-capture") {
     if (bearer(request) !== callbackToken) throw httpError(401, "Invalid callback token", "unauthorized");
     const body = await readJson(request);
-    const capture = captures.get(body.captureId);
-    if (!capture) throw httpError(404, "Tool capture no longer active", "capture_expired");
-    capture({ name: body.name, arguments: body.arguments || {} });
+    const entry = captures.get(body.captureId);
+    if (!entry) throw httpError(404, "Tool capture no longer active", "capture_expired");
+    const tool = { name: body.name, arguments: body.arguments || {}, id: entry.openAiCall.id };
+    entry.slot.capture(tool);
     return json(response, 200, { ok: true });
+  }
+  if (request.method === "POST" && url.pathname === "/internal/tool-wait") {
+    if (bearer(request) !== callbackToken) throw httpError(401, "Invalid callback token", "unauthorized");
+    const body = await readJson(request);
+    const entry = captures.get(body.captureId);
+    if (!entry) throw httpError(404, "Tool wait no longer active", "capture_expired");
+    try {
+      const payload = await entry.slot.waitForResult();
+      return json(response, 200, payload);
+    } catch (error) {
+      throw httpError(504, error.message || "Tool wait failed", "tool_wait_failed");
+    }
   }
   if (request.method === "POST" && url.pathname === "/v1/chat/completions") {
     requireLocalAuth(request);
@@ -170,17 +208,44 @@ async function chatCompletion(request, response, body) {
   const selection = resolveSelection(registry, model, body);
   if (!selection) throw httpError(400, `Unsupported model or variant: ${model}`, "unsupported_model");
   const tools = parseTools(body);
-  const sessionKey = `${requestSessionKey(request, body)}\0${JSON.stringify(selection)}\0${workingDirectory(request)}`;
-  const session = await getSession(sessionKey, selection, workingDirectory(request));
-  const prompt = renderTranscript(body.messages || [], tools, { stripSystemPrompt: config.stripSystemPrompt });
+  const cwd = workingDirectory(request);
+  const parentSession = requestParentSessionKey(request);
+  const sessionKey = `${requestSessionKey(request, body)}\0${JSON.stringify(selection)}\0${cwd}`;
+  const session = await getSession(sessionKey, selection, cwd, parentSession);
+  const messages = body.messages || [];
+  const timeout = AbortSignal.timeout(config.requestTimeoutMs);
+
+  // OpenCode tool-result hop: unblock waiting MCP and continue the same Cursor run.
+  if (session.pending && session.pump && isToolContinuation(messages)) {
+    const results = latestToolResults(messages);
+    const payload = contentForPendingTool(session.pending.openAiCall, results);
+    if (!payload) throw httpError(400, "Missing tool result for in-flight Cursor run", "missing_tool_result");
+    const captureId = session.pending.captureId;
+    session.pending.slot.resolveResult(payload);
+    session.pending = null;
+    captures.delete(captureId);
+    touchSession(sessionKey, session);
+    return respondFromPump(response, body, session, model, timeout);
+  }
+
+  // New user turn (or non-continuation): drop any stale in-flight tool wait.
+  await resetInFlight(session);
+
+  const fingerprint = toolsFingerprint(tools);
+  const retentionOk = config.retentionOk === true;
+  const canDelta = retentionOk
+    && session.seeded
+    && session.toolFingerprint === fingerprint
+    && !isToolContinuation(messages);
+  const prompt = canDelta
+    ? renderDeltaPrompt(messages, { stripSystemPrompt: config.stripSystemPrompt })
+    : renderSeedPrompt(messages, tools, { stripSystemPrompt: config.stripSystemPrompt });
+
   const captureId = crypto.randomUUID();
-  let capturedTool = null;
-  let activeRun = null;
-  captures.set(captureId, (tool) => {
-    if (capturedTool) return;
-    capturedTool = tool;
-    activeRun?.cancel().catch(() => {});
-  });
+  const slot = createPendingToolSlot();
+  const openAiCall = openAiToolCall({ name: "__pending__", arguments: {} });
+  // openAiCall.id reserved; real name/args filled on capture.
+  captures.set(captureId, { slot, openAiCall });
 
   const mcpServers = tools.length ? {
     client: {
@@ -190,13 +255,14 @@ async function chatCompletion(request, response, body) {
       env: {
         MODELFERRY_TOOLS: JSON.stringify(tools),
         MODELFERRY_CALLBACK_URL: `http://${config.host}:${config.port}/internal/tool-capture`,
+        MODELFERRY_WAIT_URL: `http://${config.host}:${config.port}/internal/tool-wait`,
         MODELFERRY_CALLBACK_TOKEN: callbackToken,
-        MODELFERRY_CAPTURE_ID: captureId
+        MODELFERRY_CAPTURE_ID: captureId,
+        MODELFERRY_WAIT_TIMEOUT_MS: String(config.requestTimeoutMs)
       }
     }
   } : undefined;
 
-  const timeout = AbortSignal.timeout(config.requestTimeoutMs);
   try {
     const runPromise = session.agent.send(prompt, {
       model: selection,
@@ -204,44 +270,78 @@ async function chatCompletion(request, response, body) {
       ...(session.force ? { local: { force: true } } : {}),
       idempotencyKey: crypto.randomUUID()
     });
-    activeRun = await Promise.race([runPromise, abortPromise(timeout)]);
+    const run = await Promise.race([runPromise, abortPromise(timeout)]);
     session.force = false;
+    session.pump = createRunPump(run);
+    session.activeRun = run;
+    session.seeded = true;
+    session.toolFingerprint = fingerprint;
+    session.captureId = captureId;
+    session.slot = slot;
+    session.openAiCall = openAiCall;
     touchSession(sessionKey, session);
-    if (body.stream === true) return await streamRun(response, activeRun, model, captureId, () => capturedTool, session);
-    const output = await collectRun(activeRun, () => capturedTool);
-    if (output.toolCall) session.force = true;
-    return json(response, 200, completionEnvelope({ id: `chatcmpl-${activeRun.id}`, model, text: output.text, toolCall: output.toolCall }));
-  } finally {
-    if (body.stream !== true) captures.delete(captureId);
-  }
-}
-
-async function collectRun(run, capturedTool) {
-  let text = "";
-  try {
-    for await (const event of run.stream()) {
-      if (event.type !== "assistant") continue;
-      for (const block of event.message?.content || []) {
-        if (block?.type === "text" && typeof block.text === "string") text += block.text;
-      }
-      if (capturedTool()) break;
-    }
+    return respondFromPump(response, body, session, model, timeout, { captureId, slot, openAiCall });
   } catch (error) {
-    if (!capturedTool()) throw error;
+    captures.delete(captureId);
+    throw error;
   }
-  if (capturedTool()) return { text: "", toolCall: capturedTool() };
-  const result = await run.wait();
-  if (result.status === "error") throw new Error(result.result || "Cursor SDK run failed");
-  return { text: text || result.result || "", toolCall: null };
 }
 
-async function streamRun(response, run, model, captureId, capturedTool, session) {
+async function respondFromPump(response, body, session, model, timeout, bootstrap = null) {
+  const captureId = bootstrap?.captureId || session.captureId;
+  const slot = bootstrap?.slot || session.slot;
+  const openAiCallTemplate = bootstrap?.openAiCall || session.openAiCall;
+
+  const getCaptured = () => slot?.captured || null;
+  const outcome = await waitForToolOrDone(session.pump, getCaptured, { signal: timeout });
+
+  if (outcome.kind === "tool") {
+    const tool = outcome.tool;
+    const call = openAiToolCall({
+      id: openAiCallTemplate?.id,
+      name: tool.name,
+      arguments: tool.arguments
+    });
+    // Keep MCP blocked until OpenCode posts the tool result on the next chat request.
+    session.pending = {
+      slot,
+      openAiCall: call,
+      captureId,
+      name: tool.name,
+      arguments: tool.arguments
+    };
+    captures.set(captureId, { slot, openAiCall: call });
+    session.force = false;
+    if (body.stream === true) return streamToolResponse(response, model, call, session.activeRun?.id);
+    return json(response, 200, completionEnvelope({
+      id: `chatcmpl-${session.activeRun?.id || crypto.randomUUID()}`,
+      model,
+      toolCall: { id: call.id, name: call.function.name, arguments: tool.arguments }
+    }));
+  }
+
+  // Run finished — clear in-flight bookkeeping.
+  captures.delete(captureId);
+  session.pending = null;
+  session.activeRun = null;
+  session.pump = null;
+  session.slot = null;
+  session.captureId = null;
+  if (body.stream === true) return streamTextResponse(response, model, outcome.text, `chatcmpl-${crypto.randomUUID()}`);
+  return json(response, 200, completionEnvelope({
+    id: `chatcmpl-${crypto.randomUUID()}`,
+    model,
+    text: outcome.text
+  }));
+}
+
+function streamToolResponse(response, model, call, runId) {
   response.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
     "cache-control": "no-cache, no-transform",
     connection: "keep-alive"
   });
-  const id = `chatcmpl-${run.id}`;
+  const id = `chatcmpl-${runId || crypto.randomUUID()}`;
   const chunk = (delta, finishReason = null) => response.write(`data: ${JSON.stringify({
     id,
     object: "chat.completion.chunk",
@@ -250,34 +350,51 @@ async function streamRun(response, run, model, captureId, capturedTool, session)
     choices: [{ index: 0, delta, finish_reason: finishReason }]
   })}\n\n`);
   chunk({ role: "assistant", content: "" });
-  try {
-    for await (const event of run.stream()) {
-      if (event.type !== "assistant") continue;
-      for (const block of event.message?.content || []) {
-        if (block?.type === "text" && block.text) chunk({ content: block.text });
-      }
-      if (capturedTool()) break;
-    }
-    const tool = capturedTool();
-    if (tool) {
-      session.force = true;
-      const call = openAiToolCall(tool);
-      chunk({ tool_calls: [{ index: 0, ...call }] }, "tool_calls");
-    } else {
-      await run.wait();
-      chunk({}, "stop");
-    }
-    response.end("data: [DONE]\n\n");
-  } catch (error) {
-    if (!response.writableEnded) response.end(`data: ${JSON.stringify({ error: apiError(error) })}\n\ndata: [DONE]\n\n`);
-  } finally {
-    captures.delete(captureId);
-  }
+  chunk({ tool_calls: [{ index: 0, ...call }] }, "tool_calls");
+  response.end("data: [DONE]\n\n");
 }
 
-async function getSession(key, selection, cwd) {
+function streamTextResponse(response, model, text, id) {
+  response.writeHead(200, {
+    "content-type": "text/event-stream; charset=utf-8",
+    "cache-control": "no-cache, no-transform",
+    connection: "keep-alive"
+  });
+  const chunk = (delta, finishReason = null) => response.write(`data: ${JSON.stringify({
+    id,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [{ index: 0, delta, finish_reason: finishReason }]
+  })}\n\n`);
+  chunk({ role: "assistant", content: "" });
+  if (text) chunk({ content: text });
+  chunk({}, "stop");
+  response.end("data: [DONE]\n\n");
+}
+
+async function resetInFlight(session) {
+  if (session.pending?.slot) {
+    try { session.pending.slot.rejectResult(new Error("superseded by a new turn")); } catch {}
+    captures.delete(session.pending.captureId);
+    session.pending = null;
+  }
+  if (session.activeRun) {
+    try { await session.activeRun.cancel(); } catch {}
+    session.activeRun = null;
+  }
+  session.pump = null;
+  session.slot = null;
+  session.captureId = null;
+  session.force = true;
+}
+
+async function getSession(key, selection, cwd, parentSession = null) {
   const existing = sessions.get(key);
-  if (existing) return existing;
+  if (existing) {
+    existing.parentSession = parentSession || existing.parentSession;
+    return existing;
+  }
   const agent = await Agent.create({
     model: selection,
     name: "OpenCode Model Ferry",
@@ -285,7 +402,20 @@ async function getSession(key, selection, cwd) {
     tools: ["mcp"],
     local: { cwd, settingSources: [] }
   });
-  const session = { agent, touchedAt: Date.now(), force: false };
+  const session = {
+    agent,
+    touchedAt: Date.now(),
+    force: false,
+    seeded: false,
+    toolFingerprint: null,
+    activeRun: null,
+    pump: null,
+    pending: null,
+    slot: null,
+    captureId: null,
+    openAiCall: null,
+    parentSession
+  };
   sessions.set(key, session);
   evictSessions();
   return session;
@@ -327,7 +457,10 @@ function evictSessions() {
   while (sessions.size > config.maxSessions) {
     const [key, session] = sessions.entries().next().value;
     sessions.delete(key);
-    try { session.agent.close(); } catch {}
+    try {
+      if (session.pending?.slot) session.pending.slot.rejectResult(new Error("session evicted"));
+      session.agent.close();
+    } catch {}
   }
 }
 
@@ -416,7 +549,12 @@ function abortPromise(signal) {
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
     server.close();
-    for (const { agent } of sessions.values()) try { agent.close(); } catch {}
+    for (const session of sessions.values()) {
+      try {
+        if (session.pending?.slot) session.pending.slot.rejectResult(new Error("server shutting down"));
+        session.agent.close();
+      } catch {}
+    }
     process.exit(0);
   });
 }

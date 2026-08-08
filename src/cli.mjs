@@ -197,10 +197,16 @@ async function uninstall() {
   try { execFileSync("/bin/launchctl", ["bootout", domain, launchAgentPath], { stdio: "ignore" }); } catch {}
   if (fs.existsSync(launchAgentPath)) fs.unlinkSync(launchAgentPath);
   const config = readJson(openCodeConfigPath, {});
+  let changed = false;
   if (config.provider?.cursorapi) {
     delete config.provider.cursorapi;
-    fs.writeFileSync(openCodeConfigPath, `${JSON.stringify(config, null, 2)}\n`);
+    changed = true;
   }
+  if (config.providers?.cursorapi) {
+    delete config.providers.cursorapi;
+    changed = true;
+  }
+  if (changed) fs.writeFileSync(openCodeConfigPath, `${JSON.stringify(config, null, 2)}\n`);
   console.log("Launch agent removed. The Cursor browser login (if any) remains in ~/.cursor/sdk/auth.json. Run `modelferry logout` to clear it.");
 }
 
