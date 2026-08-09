@@ -8,28 +8,52 @@ $binDir = if ($env:MODELFERRY_BIN_DIR) { $env:MODELFERRY_BIN_DIR } else { Join-P
 
 function Say([string]$message) { Write-Host "modelferry $message" -ForegroundColor Blue }
 function Die([string]$message) { throw "modelferry: $message" }
+function Assert-NativeSuccess([string]$action) {
+  if ($null -ne $LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+    Die "$action failed (exit $LASTEXITCODE)."
+  }
+}
+
+function Assert-ModelFerryRemote([string]$dir) {
+  $remote = git -C $dir remote get-url origin 2>$null
+  Assert-NativeSuccess "Reading git remote for $dir"
+  $normalized = ($remote -replace '\.git$', '').TrimEnd('/').ToLowerInvariant()
+  $expected = ($repoUrl -replace '\.git$', '').TrimEnd('/').ToLowerInvariant()
+  $expectedSsh = "git@github.com:designxdevelop/model-ferry"
+  if ($normalized -ne $expected -and $normalized -ne $expectedSsh) {
+    Die "$dir origin is '$remote', expected $repoUrl. Remove it or set MODELFERRY_DIR, then re-run."
+  }
+}
 
 if ($PSVersionTable.PSVersion.Major -lt 5) { Die "PowerShell 5.1 or later is required." }
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Die "git is required. Install it from https://git-scm.com and re-run." }
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Die "Node.js 22 or later is required. Install it from https://nodejs.org and re-run." }
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { Die "npm is required. Install Node.js 22 or later from https://nodejs.org and re-run." }
 
-$nodeMajor = [int](node -p "process.versions.node.split('.')[0]")
+$nodeMajorText = node -p "process.versions.node.split('.')[0]"
+Assert-NativeSuccess "Querying Node.js version"
+$nodeMajor = [int]$nodeMajorText
 if ($nodeMajor -lt 22) { Die "Node.js 22 or later is required (found $(node --version))." }
 
 if (Test-Path $installDir) {
   if (-not (Test-Path (Join-Path $installDir ".git"))) { Die "$installDir already exists and is not a Model Ferry checkout. Remove it or set MODELFERRY_DIR, then re-run." }
+  Assert-ModelFerryRemote $installDir
   Say "Updating existing install in $installDir"
   git -C $installDir pull --ff-only
+  Assert-NativeSuccess "Updating $installDir"
 } else {
   Say "Cloning Model Ferry into $installDir"
   New-Item -ItemType Directory -Force -Path (Split-Path -Parent $installDir) | Out-Null
   git clone $repoUrl $installDir
+  Assert-NativeSuccess "Cloning Model Ferry"
 }
 
 Say "Installing dependencies"
 Push-Location $installDir
-try { npm install } finally { Pop-Location }
+try {
+  npm install
+  Assert-NativeSuccess "npm install"
+} finally { Pop-Location }
 
 Say "Linking modelferry onto your PATH"
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
@@ -43,9 +67,12 @@ if (-not (($env:Path -split ";") -contains $binDir)) {
   Say "Add $binDir to your User PATH to use modelferry from a new terminal."
 }
 
-Say "Running setup with Windows Task Scheduler — a browser window may open for Cursor sign-in"
+Say "Running setup with Windows Task Scheduler - a browser window may open for Cursor sign-in"
 Push-Location $installDir
-try { npm run setup } finally { Pop-Location }
+try {
+  npm run setup
+  Assert-NativeSuccess "npm run setup"
+} finally { Pop-Location }
 
 Write-Host ""
 Write-Host "modelferry: installed. Next steps:"

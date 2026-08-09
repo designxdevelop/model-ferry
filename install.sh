@@ -3,8 +3,8 @@
 #   Quick install:  curl -fsSL https://ferry.designxdevelop.com/install.sh | bash
 #   Local:          bash install.sh
 # Clones the repo into $MODELFERRY_DIR (default ~/.modelferry), installs
-# dependencies, and runs setup (signs in with Cursor, installs the launchd
-# agent, and syncs the Cursor catalog into OpenCode). For Windows, use
+# dependencies, and runs setup (signs in with Cursor, installs the background
+# service, and syncs the Cursor catalog into OpenCode). For Windows, use
 # install.ps1 from PowerShell.
 
 set -euo pipefail
@@ -17,7 +17,33 @@ MIN_NODE_MAJOR=22
 say() { printf '\033[1;34mmodelferry\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mmodelferry: error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[ "$(uname -s)" = "Darwin" ] || die "This installer is for macOS. On Windows 10 or 11, run install.ps1 from PowerShell."
+assert_modelferry_remote() {
+  local dir="$1"
+  local remote normalized expected expected_ssh
+  remote="$(git -C "$dir" remote get-url origin 2>/dev/null || true)"
+  [ -n "$remote" ] || die "$dir has no origin remote. Remove it or set MODELFERRY_DIR, then re-run."
+  normalized="$(printf '%s' "$remote" | sed -E 's#\.git$##' | sed -E 's#/$##' | tr '[:upper:]' '[:lower:]')"
+  expected="$(printf '%s' "$REPO_URL" | sed -E 's#\.git$##' | sed -E 's#/$##' | tr '[:upper:]' '[:lower:]')"
+  expected_ssh="git@github.com:designxdevelop/model-ferry"
+  [ "$normalized" = "$expected" ] || [ "$normalized" = "$expected_ssh" ] || \
+    die "$dir origin is '$remote', expected $REPO_URL. Remove it or set MODELFERRY_DIR, then re-run."
+}
+
+case "$(uname -s)" in
+  Darwin) SERVICE_MANAGER="launchd" ;;
+  Linux)
+    SERVICE_MANAGER="systemd"
+    command -v systemctl >/dev/null 2>&1 || die "systemctl is required on Linux. Install systemd or run Model Ferry manually with npm start."
+    # Fail before cloning if there is no usable systemd user manager (SSH without
+    # pam_systemd, containers, some WSL setups). is-system-running exits non-zero
+    # for degraded/offline states too; any response from the user bus is enough.
+    if ! systemctl --user is-system-running >/dev/null 2>&1 \
+      && ! systemctl --user show-environment >/dev/null 2>&1; then
+      die "A systemd user session is required (systemctl --user is unavailable). Log into a graphical or pam_systemd session, or run: loginctl enable-linger \"\$USER\""
+    fi
+    ;;
+  *) die "This installer is for macOS and Linux. On Windows 10 or 11, run install.ps1 from PowerShell." ;;
+esac
 
 command -v git >/dev/null 2>&1 || die "git is required. Install it from https://git-scm.com and re-run."
 command -v node >/dev/null 2>&1 || die "Node.js >= 22 is required. Install it from https://nodejs.org and re-run."
@@ -28,6 +54,7 @@ NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 
 if [ -d "$INSTALL_DIR" ]; then
   [ -d "$INSTALL_DIR/.git" ] || die "$INSTALL_DIR already exists and is not a Model Ferry checkout. Remove it or set MODELFERRY_DIR, then re-run."
+  assert_modelferry_remote "$INSTALL_DIR"
   say "Updating existing install in $INSTALL_DIR"
   git -C "$INSTALL_DIR" pull --ff-only
 else
@@ -50,7 +77,7 @@ case ":$PATH:" in
     ;;
 esac
 
-say "Running setup — a browser window may open for Cursor sign-in"
+say "Running setup with $SERVICE_MANAGER — a browser window may open for Cursor sign-in"
 (cd "$INSTALL_DIR" && npm run setup)
 
 cat <<EOF

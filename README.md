@@ -4,7 +4,7 @@ Model Ferry is a persistent, loopback-only OpenAI-compatible adapter from OpenCo
 
 It fixes two behaviors of API for Cursor:
 
-- The bridge starts at login through `launchd` on macOS or Windows Task Scheduler on Windows 10 and 11. Authentication uses the Cursor SDK's stored browser login, or `CURSOR_API_KEY` when set.
+- The bridge starts at login through `launchd` on macOS, a systemd user service on Linux, or Windows Task Scheduler on Windows 10 and 11. Authentication uses the Cursor SDK's stored browser login, or `CURSOR_API_KEY` when set.
 - Its installer adds the `cursorapi` provider and synchronizes the authenticated Cursor model catalog without creating or changing OpenCode's top-level `model` setting.
 
 ## Install
@@ -35,7 +35,8 @@ The first time, `setup` signs you in with your Cursor account: a browser opens t
 The setup command creates:
 
 - macOS: `~/Library/LaunchAgents/ai.dxd.modelferry.plist`
-- Windows: a per-user **Model Ferry** Task Scheduler task, triggered at sign-in and restarted after failure
+- Linux: `~/.config/systemd/user/ai.dxd.modelferry.service`
+- Windows: a per-user **Model Ferry** Task Scheduler task (logon trigger + keepalive wrapper)
 - a `cursorapi` provider in `~/.config/opencode/opencode.json` (V1 `provider.cursorapi` and OpenCode 2.0 `providers.cursorapi`)
 
 It backs up the OpenCode config before changing it and preserves the existing default model exactly.
@@ -55,7 +56,11 @@ npm run logout   # clear the stored browser login
 npm run status   # shows auth state and bridge health
 ```
 
-The bridge runs as a background service, which does not inherit shell environment variables. A stored browser login works there out of the box. To use `CURSOR_API_KEY`, set it for the service manager too: macOS uses `launchctl setenv CURSOR_API_KEY <key>`; Windows uses `setx CURSOR_API_KEY <key>` followed by restarting the **Model Ferry** task.
+The bridge runs as a background service, which does not inherit shell environment variables. A stored browser login works there out of the box. To use `CURSOR_API_KEY`, set it for the service manager too:
+
+- macOS: `launchctl setenv CURSOR_API_KEY <key>`
+- Linux: put `CURSOR_API_KEY=...` in `~/.config/environment.d/modelferry.conf`, then run `systemctl --user daemon-reload` and `systemctl --user restart ai.dxd.modelferry.service` (a one-shot `systemctl --user import-environment CURSOR_API_KEY` only lasts for the current user-manager session)
+- Windows: put `set CURSOR_API_KEY=<key>` in `%USERPROFILE%\.config\modelferry\environment.cmd`, then restart the **Model Ferry** task (`modelferry` setup/login does this automatically when `CURSOR_API_KEY` is already set in the installing shell). `setx` alone is not enough for the running logon session.
 
 ### Auto-renewal
 
