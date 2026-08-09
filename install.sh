@@ -21,6 +21,13 @@ case "$(uname -s)" in
   Linux)
     SERVICE_MANAGER="systemd"
     command -v systemctl >/dev/null 2>&1 || die "systemctl is required on Linux. Install systemd or run Model Ferry manually with npm start."
+    # Fail before cloning if there is no usable systemd user manager (SSH without
+    # pam_systemd, containers, some WSL setups). is-system-running exits non-zero
+    # for degraded/offline states too; any response from the user bus is enough.
+    if ! systemctl --user is-system-running >/dev/null 2>&1 \
+      && ! systemctl --user show-environment >/dev/null 2>&1; then
+      die "A systemd user session is required (systemctl --user is unavailable). Log into a graphical or pam_systemd session, or run: loginctl enable-linger \"\$USER\""
+    fi
     ;;
   *) die "Model Ferry supports macOS and Linux." ;;
 esac

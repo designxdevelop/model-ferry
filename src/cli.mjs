@@ -48,7 +48,7 @@ async function setup() {
     console.log("Authenticated via CURSOR_API_KEY.");
   }
   if (auth.via === "env") {
-    console.log(`Note: the ${serviceManager()} service does not inherit shell environment variables. If the bridge reports not authenticated, run \`npm run login\` once${process.platform === "darwin" ? ", or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`" : ", or import CURSOR_API_KEY with `systemctl --user import-environment CURSOR_API_KEY` and restart the service"}.`);
+    console.log(`Note: the ${serviceManager()} service does not inherit shell environment variables. If the bridge reports not authenticated, run \`npm run login\` once${process.platform === "darwin" ? ", or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`" : ", or put CURSOR_API_KEY in ~/.config/environment.d/modelferry.conf and restart the service"}.`);
   }
   console.log("Your existing OpenCode default model was preserved.");
   console.log("Select the Cursor provider in OpenCode, then choose a model and variant.");

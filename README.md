@@ -49,7 +49,7 @@ npm run logout   # clear the stored browser login
 npm run status   # shows auth state and bridge health
 ```
 
-The bridge runs as a background service, which does not inherit shell environment variables. A stored browser login works there out of the box. To use `CURSOR_API_KEY`, set it for the service manager too: macOS uses `launchctl setenv CURSOR_API_KEY <key>`; Linux uses `systemctl --user import-environment CURSOR_API_KEY` followed by `systemctl --user restart ai.dxd.modelferry.service`.
+The bridge runs as a background service, which does not inherit shell environment variables. A stored browser login works there out of the box. To use `CURSOR_API_KEY`, set it for the service manager too: macOS uses `launchctl setenv CURSOR_API_KEY <key>`; on Linux, put `CURSOR_API_KEY=...` in `~/.config/environment.d/modelferry.conf`, then run `systemctl --user daemon-reload` and `systemctl --user restart ai.dxd.modelferry.service` (a one-shot `systemctl --user import-environment CURSOR_API_KEY` only lasts for the current user-manager session).
 
 ### Auto-renewal
 

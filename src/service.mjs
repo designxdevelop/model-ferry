@@ -29,12 +29,41 @@ export function serviceDefinition({
   throw new Error(`Model Ferry supports macOS and Linux; ${platform} is not supported.`);
 }
 
+export function assertUserServiceAvailable(platform = process.platform) {
+  if (platform !== "linux") return;
+  // is-system-running exits non-zero for degraded/offline; any reply from the
+  // user bus (including show-environment) means we can manage user units.
+  if (userSystemctlWorks(["is-system-running"]) || userSystemctlWorks(["show-environment"])) return;
+  throw new Error(
+    "A systemd user session is required (systemctl --user is unavailable). " +
+    "Log into a graphical or pam_systemd session, or enable lingering with " +
+    "`loginctl enable-linger $USER`, then re-run setup."
+  );
+}
+
+function userSystemctlWorks(args) {
+  try {
+    execFileSync("systemctl", ["--user", ...args], {
+      stdio: ["ignore", "pipe", "pipe"],
+      timeout: 5000
+    });
+    return true;
+  } catch (error) {
+    const detail = `${error.stderr || ""}`.toLowerCase();
+    if (error.code === "ENOENT") return false;
+    if (detail.includes("failed to connect") || detail.includes("no medium found")) return false;
+    // Bus answered with a non-zero unit state (degraded/offline/etc.).
+    return typeof error.status === "number";
+  }
+}
+
 export function installService({
   platform = process.platform,
   node = process.execPath,
   server,
   workingDirectory
 }) {
+  assertUserServiceAvailable(platform);
   const target = servicePath(platform);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, serviceDefinition({ platform, node, server, workingDirectory }));
@@ -111,7 +140,7 @@ After=network-online.target
 Type=simple
 WorkingDirectory=${systemdEscape(workingDirectory)}
 ExecStart=${systemdEscape(node)} ${systemdEscape(server)}
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
@@ -124,5 +153,10 @@ function xml(value) {
 }
 
 function systemdEscape(value) {
-  return value.replaceAll("\\", "\\\\").replaceAll(" ", "\\x20");
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "%%")
+    .replaceAll('"', '\\"')
+    .replaceAll("$", "$$")
+    .replaceAll(" ", "\\x20");
 }
