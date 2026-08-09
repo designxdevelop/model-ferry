@@ -8,7 +8,6 @@ export const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.u
 export const configDir = path.join(os.homedir(), ".config", "modelferry");
 export const configPath = path.join(configDir, "config.json");
 export const catalogPath = path.join(configDir, "catalog.json");
-export const launchAgentPath = path.join(os.homedir(), "Library", "LaunchAgents", "ai.dxd.modelferry.plist");
 export const openCodeConfigPath = path.join(os.homedir(), ".config", "opencode", "opencode.json");
 
 /** Well-known token from early installs — migrated away on ensure. */
