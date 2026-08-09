@@ -4,7 +4,8 @@
 #   Local:          bash install.sh
 # Clones the repo into $MODELFERRY_DIR (default ~/.modelferry), installs
 # dependencies, and runs setup (signs in with Cursor, installs the launchd
-# agent, and syncs the Cursor catalog into OpenCode).
+# agent, and syncs the Cursor catalog into OpenCode). For Windows, use
+# install.ps1 from PowerShell.
 
 set -euo pipefail
 
@@ -16,7 +17,7 @@ MIN_NODE_MAJOR=22
 say() { printf '\033[1;34mmodelferry\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mmodelferry: error:\033[0m %s\n' "$*" >&2; exit 1; }
 
-[ "$(uname -s)" = "Darwin" ] || die "Model Ferry currently requires macOS (the launchd launch agent)."
+[ "$(uname -s)" = "Darwin" ] || die "This installer is for macOS. On Windows 10 or 11, run install.ps1 from PowerShell."
 
 command -v git >/dev/null 2>&1 || die "git is required. Install it from https://git-scm.com and re-run."
 command -v node >/dev/null 2>&1 || die "Node.js >= 22 is required. Install it from https://nodejs.org and re-run."
