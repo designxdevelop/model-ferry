@@ -15,20 +15,25 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
   <div class="container">
     <span class="kicker">Install</span>
     <h2 class="heading">One command to your first run.</h2>
+    <p class="platforms">
+      Supported on <strong>macOS</strong>, <strong>Linux</strong>, and <strong>Windows</strong> —
+      <code>install.sh</code> on macOS and Linux, <code>install.ps1</code> on Windows.
+    </p>
     <div class="code quick">
-      <div class="bar"><span>terminal</span><button class="copy" data-copy="#quick-install" type="button">Copy</button></div>
+      <div class="bar"><span>macOS / Linux</span><button class="copy" data-copy="#quick-install" type="button">Copy</button></div>
       <pre><span class="cmt"># install the bridge, sign in, and launch it</span>
 <span id="quick-install">{quick}</span></pre>
     </div>
-    <p class="note">
-      Clones the repo to <code>~/.modelferry</code>, installs dependencies, and runs setup. Setup signs you in with
-      Cursor and adds the <code>cursorapi</code> provider to OpenCode. Your default model stays untouched.
-    </p>
     <div class="code quick">
-      <div class="bar"><span>Windows PowerShell</span><button class="copy" data-copy="#windows-install" type="button">Copy</button></div>
+      <div class="bar"><span>Windows</span><button class="copy" data-copy="#windows-install" type="button">Copy</button></div>
       <pre><span class="cmt"># Windows 10 / 11: install, sign in, and launch</span>
 <span id="windows-install">{windows}</span></pre>
     </div>
+    <p class="note">
+      Clones the repo to <code>~/.modelferry</code>, installs dependencies, and runs setup. Setup signs you in with
+      Cursor, installs a login service (<code>launchd</code>, systemd, or Task Scheduler), and adds the
+      <code>cursorapi</code> provider to OpenCode. Your default model stays untouched.
+    </p>
 
     <div class="callout">
       <span class="callout-title">Uses your Cursor subscription</span>
@@ -39,7 +44,7 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
     <h3 class="subheading">Manual setup</h3>
     <div class="cols">
       <div class="code">
-        <div class="bar"><span>terminal</span><button class="copy" data-copy="#manual-install" type="button">Copy</button></div>
+        <div class="bar"><span>macOS / Linux / Windows</span><button class="copy" data-copy="#manual-install" type="button">Copy</button></div>
         <pre><span class="cmt"># clone, install, and sign in</span>
 <span id="manual-install">{manual}</span></pre>
       </div>
@@ -56,7 +61,10 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
 </section>
 
 <style>
-  .heading { font-size: clamp(30px, 4vw, 44px); margin-bottom: 36px; }
+  .heading { font-size: clamp(30px, 4vw, 44px); margin-bottom: 16px; }
+  .platforms { margin: 0 0 28px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+  .platforms strong { color: var(--text); font-weight: 600; }
+  .platforms code { font-size: 13px; color: var(--text); }
   .subheading { font-size: 20px; margin: 48px 0 16px; }
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .code { border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg-soft); overflow: hidden; }

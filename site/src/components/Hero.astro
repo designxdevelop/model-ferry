@@ -17,10 +17,15 @@ const quick = `curl -fsSL https://ferry.designxdevelop.com/install.sh | bash`;
       </div>
 
       <div class="code">
-        <div class="bar"><span class="title">install</span><button class="copy" data-copy="#hero-install" type="button">Copy</button></div>
+        <div class="bar"><span class="title">macOS / Linux</span><button class="copy" data-copy="#hero-install" type="button">Copy</button></div>
         <pre><span class="cmt"># install the bridge, sign in, and launch it</span>
 <span id="hero-install">{quick}</span></pre>
       </div>
+
+      <p class="platforms">
+        Works on <strong>macOS</strong>, <strong>Linux</strong>, and <strong>Windows</strong>.
+        <a href="#install">Windows install</a>
+      </p>
 
       <p class="hint">
         Uses your Cursor subscription. Cursor usage limits apply. Then pick the <strong>Cursor</strong> provider in OpenCode and choose a model.
@@ -55,7 +60,11 @@ const quick = `curl -fsSL https://ferry.designxdevelop.com/install.sh | bash`;
   .bar .copy { margin-left: auto; }
   .code pre { margin: 0; padding: 18px 20px; font-size: 13px; line-height: 1.8; color: #d7d7db; white-space: pre-wrap; word-break: break-word; text-align: left; }
   .code .cmt { color: var(--faint); }
-  .hint { margin: 20px 0 0; font-size: 13px; color: var(--faint); }
+  .platforms { margin: 18px 0 0; font-size: 14px; color: var(--muted); }
+  .platforms strong { color: var(--text); font-weight: 600; }
+  .platforms a { color: var(--accent); text-decoration: none; margin-left: 6px; }
+  .platforms a:hover { text-decoration: underline; }
+  .hint { margin: 10px 0 0; font-size: 13px; color: var(--faint); }
   .hint strong { color: var(--muted); font-weight: 600; }
 
   @media (max-width: 860px) {
