@@ -1,5 +1,6 @@
 ---
 const quick = `curl -fsSL https://ferry.designxdevelop.com/install.sh | bash`;
+const windows = `irm https://ferry.designxdevelop.com/install.ps1 | iex`;
 
 const manual = `git clone https://github.com/designxdevelop/model-ferry.git
 cd model-ferry
@@ -23,6 +24,11 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
       Clones the repo to <code>~/.modelferry</code>, installs dependencies, and runs setup. Setup signs you in with
       Cursor and adds the <code>cursorapi</code> provider to OpenCode. Your default model stays untouched.
     </p>
+    <div class="code quick">
+      <div class="bar"><span>Windows PowerShell</span><button class="copy" data-copy="#windows-install" type="button">Copy</button></div>
+      <pre><span class="cmt"># Windows 10 / 11: install, sign in, and launch</span>
+<span id="windows-install">{windows}</span></pre>
+    </div>
 
     <div class="callout">
       <span class="callout-title">Uses your Cursor subscription</span>
@@ -43,7 +49,7 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
       </div>
     </div>
     <p class="note">
-      Works with the Cursor Agent SDK and the standard OpenAI-compatible chat API.
+      Works on macOS, Linux, and Windows 10/11 with the Cursor Agent SDK and the standard OpenAI-compatible chat API.
       <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">Read the README</a> for the full CLI and catalog-refresh commands.
     </p>
   </div>

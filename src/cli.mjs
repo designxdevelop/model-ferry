@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import fs from "node:fs";
 import { execFile } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { authStatus, login as browserLogin, logout as clearAuth } from "./auth.mjs";
@@ -48,7 +48,7 @@ async function setup() {
     console.log("Authenticated via CURSOR_API_KEY.");
   }
   if (auth.via === "env") {
-    console.log(`Note: the ${serviceManager()} service does not inherit shell environment variables. If the bridge reports not authenticated, run \`npm run login\` once${process.platform === "darwin" ? ", or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`" : ", or put CURSOR_API_KEY in ~/.config/environment.d/modelferry.conf and restart the service"}.`);
+    console.log(`Note: the ${serviceManager()} service does not inherit shell environment variables. If the bridge reports not authenticated, run \`npm run login\` once${cursorApiKeyServiceHint()}.`);
   }
   console.log("Your existing OpenCode default model was preserved.");
   console.log("Select the Cursor provider in OpenCode, then choose a model and variant.");
@@ -160,16 +160,20 @@ async function models() {
   }
 }
 
+function serverPath() {
+  return path.join(projectRoot, "src", "server.mjs");
+}
+
 function installBackgroundService() {
-  installService({ server: path.join(projectRoot, "src", "server.mjs"), workingDirectory: projectRoot });
+  installService({ server: serverPath(), workingDirectory: projectRoot });
 }
 
 function restartBackgroundService() {
-  restartService();
+  restartService(process.platform, { server: serverPath() });
 }
 
 async function uninstall() {
-  uninstallService();
+  uninstallService(process.platform, { server: serverPath() });
   const config = readJson(openCodeConfigPath, {});
   let changed = false;
   if (config.provider?.cursorapi) {
@@ -188,9 +192,23 @@ function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return fallback; }
 }
 
+function cursorApiKeyServiceHint() {
+  if (process.platform === "darwin") {
+    return ", or set CURSOR_API_KEY for launchd with `launchctl setenv CURSOR_API_KEY ...`";
+  }
+  if (process.platform === "linux") {
+    return ", or put CURSOR_API_KEY in ~/.config/environment.d/modelferry.conf and restart the service";
+  }
+  if (process.platform === "win32") {
+    return ", or put `set CURSOR_API_KEY=...` in %USERPROFILE%\\.config\\modelferry\\environment.cmd and restart the Model Ferry task";
+  }
+  return "";
+}
+
 function openBrowser(url) {
-  const command = process.platform === "darwin" ? "/usr/bin/open" : "xdg-open";
-  execFile(command, [url], () => {});
+  if (process.platform === "darwin") execFile("/usr/bin/open", [url], () => {});
+  else if (process.platform === "win32") execFile("cmd.exe", ["/d", "/s", "/c", `start "" "${url}"`], () => {});
+  else execFile("xdg-open", [url], () => {});
 }
 
 function help() {
