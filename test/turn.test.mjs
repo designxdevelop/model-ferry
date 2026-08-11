@@ -4,6 +4,7 @@ import {
   contentForPendingTool,
   createPendingToolSlot,
   createRunPump,
+  cursorRunError,
   waitForToolOrDone
 } from "../src/turn.mjs";
 
@@ -62,4 +63,38 @@ test("waitForToolOrDone returns done text when no tool is captured", async () =>
   const outcome = await waitForToolOrDone(pump, () => null);
   assert.equal(outcome.kind, "done");
   assert.equal(outcome.text, "done");
+});
+
+test("waitForToolOrDone surfaces the SDK error message instead of a generic fallback", async () => {
+  async function* stream() {}
+  const run = {
+    stream: () => stream(),
+    wait: async () => ({ status: "error", result: "", error: { message: "Authentication error If you are logged in, try logging out and back in." } })
+  };
+  const pump = createRunPump(run);
+  await assert.rejects(
+    waitForToolOrDone(pump, () => null),
+    (error) => error.message.includes("Authentication error")
+  );
+});
+
+test("cursorRunError classifies auth failures as 503 not_authenticated", () => {
+  const error = cursorRunError({ status: "error", error: { message: "Authentication error If you are logged in, try logging out and back in." } });
+  assert.equal(error.status, 503);
+  assert.equal(error.code, "not_authenticated");
+  assert.match(error.message, /Authentication error/);
+});
+
+test("cursorRunError keeps other run failures as 500 and preserves their message", () => {
+  const error = cursorRunError({ status: "error", error: { message: "The model returned no output." } });
+  assert.equal(error.status, 500);
+  assert.equal(error.code, "cursor_run_failed");
+  assert.match(error.message, /no output/);
+});
+
+test("cursorRunError falls back to a generic message when the SDK provides nothing", () => {
+  const error = cursorRunError({ status: "error" });
+  assert.equal(error.status, 500);
+  assert.equal(error.code, "cursor_run_failed");
+  assert.equal(error.message, "Cursor SDK run failed");
 });

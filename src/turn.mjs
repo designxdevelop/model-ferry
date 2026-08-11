@@ -89,7 +89,7 @@ export async function waitForToolOrDone(state, getCapturedTool, { signal } = {})
     if (item.type === "error") throw item.error;
     if (item.type === "done") {
       const result = item.result || state.result;
-      if (result?.status === "error") throw new Error(result.result || "Cursor SDK run failed");
+      if (result?.status === "error") throw cursorRunError(result);
       return {
         kind: "done",
         text: state.text.slice(textAtStart) || result?.result || "",
@@ -129,6 +129,20 @@ export function createPendingToolSlot() {
       resultReject(error);
     }
   };
+}
+
+/**
+ * Classify a failed Cursor Agent run into an error the bridge can surface.
+ * For error runs the SDK leaves `result.result` empty and stores the real
+ * reason in `result.error.message`; prefer that over a generic fallback so
+ * callers see what actually failed.
+ */
+export function cursorRunError(result) {
+  const raw = result?.result || result?.error?.message || "Cursor SDK run failed";
+  const message = typeof raw === "string" ? raw : JSON.stringify(raw);
+  const authLike = /authentication error|not (?:signed|logged)[ -]?in|unauthorized|invalid api[ _-]?key|api[ _-]?key.*(?:invalid|rejected)|status\s*401/i.test(message);
+  if (authLike) return Object.assign(new Error(message), { status: 503, code: "not_authenticated" });
+  return Object.assign(new Error(message), { status: 500, code: "cursor_run_failed" });
 }
 
 export function contentForPendingTool(pendingTool, toolResults) {

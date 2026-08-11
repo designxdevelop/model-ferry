@@ -531,6 +531,11 @@ function html(response, status, body) {
 
 function sendError(response, error) {
   if (response.headersSent) return response.end();
+  if (error?.code === "not_authenticated" && !/Log back in|modelferry login/i.test(error.message || "")) {
+    error = Object.assign(new Error(
+      `Your Cursor session is not signed in, or its API key was rejected. Log back in from the Model Ferry setup page (http://${config.host}:${config.port}/onboard) or run \`modelferry login\`, then try again.`
+    ), { status: 503, code: "not_authenticated" });
+  }
   json(response, error.status || 500, { error: apiError(error) });
 }
 
