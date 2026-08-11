@@ -52,14 +52,16 @@ test("full scan keeps supported but absent harnesses visible", () => {
 test("Windows discovery uses semicolon PATH, PATHEXT, and native config paths", () => {
   const present = new Set([
     "C:\\Tools\\pi.CMD",
-    "C:\\Users\\A\\AppData\\Local\\hermes"
+    "C:\\Users\\A\\AppData\\Local\\hermes",
+    "C:\\Users\\A\\.config\\opencode"
   ]);
   const installed = discoverInstalledHarnesses({
     home: "C:\\Users\\A",
     env: {
       PATH: "C:\\Tools;D:\\Programs",
       PATHEXT: ".EXE;.CMD",
-      LOCALAPPDATA: "C:\\Users\\A\\AppData\\Local"
+      LOCALAPPDATA: "C:\\Users\\A\\AppData\\Local",
+      APPDATA: "C:\\Users\\A\\AppData\\Roaming"
     },
     platform: "win32",
     exists: (candidate) => present.has(candidate)
@@ -68,6 +70,9 @@ test("Windows discovery uses semicolon PATH, PATHEXT, and native config paths", 
   assert.deepEqual(installed.find((harness) => harness.id === "pi").foundBy.commands, ["pi"]);
   assert.deepEqual(installed.find((harness) => harness.id === "hermes-agent").foundBy.configPaths, [
     "C:\\Users\\A\\AppData\\Local\\hermes"
+  ]);
+  assert.deepEqual(installed.find((harness) => harness.id === "opencode").foundBy.configPaths, [
+    "C:\\Users\\A\\.config\\opencode"
   ]);
 });
 

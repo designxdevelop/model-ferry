@@ -130,11 +130,15 @@ export function removeAgentConfigs(options = {}) {
   const piFile = options.piFile || piConfigPath(options.home);
   const hermesFile = options.hermesFile || hermesConfigPath(options);
   if (fs.existsSync(piFile)) {
-    const current = readJsonStrict(piFile, {});
-    if (current.providers?.[PROVIDER_ID]) {
-      delete current.providers[PROVIDER_ID];
-      writeAtomic(piFile, `${JSON.stringify(current, null, 2)}\n`, { backup: false });
-      results.push({ client: "Pi", changed: true, file: piFile });
+    try {
+      const current = readJsonStrict(piFile, {});
+      if (current.providers?.[PROVIDER_ID]) {
+        delete current.providers[PROVIDER_ID];
+        writeAtomic(piFile, `${JSON.stringify(current, null, 2)}\n`, { backup: false });
+        results.push({ client: "Pi", changed: true, file: piFile });
+      }
+    } catch {
+      // Leave malformed Pi config alone so uninstall can still clean Hermes/OpenCode.
     }
   }
   if (fs.existsSync(hermesFile)) {

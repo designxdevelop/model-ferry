@@ -96,6 +96,20 @@ test("agent config removal deletes only Model Ferry providers", () => {
   assert.equal(hermes.providers.modelferry, undefined);
 });
 
+test("agent config removal continues when Pi JSON is malformed", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "modelferry-remove-bad-pi-"));
+  const piFile = path.join(directory, "pi.json");
+  const hermesFile = path.join(directory, "hermes.yaml");
+  fs.writeFileSync(piFile, "{not-json");
+  fs.writeFileSync(hermesFile, "providers:\n  other:\n    api: https://example.com/v1\n");
+  syncHermesConfig(registry, config, { file: hermesFile, backup: false });
+  const results = removeAgentConfigs({ piFile, hermesFile });
+  assert.equal(results.length, 1);
+  assert.equal(results[0].client, "Hermes");
+  assert.equal(fs.readFileSync(piFile, "utf8"), "{not-json");
+  assert.equal(parse(fs.readFileSync(hermesFile, "utf8")).providers.modelferry, undefined);
+});
+
 test("Hermes uses its native Windows config directory", () => {
   assert.equal(
     hermesConfigPath({ home: "C:\\Users\\A", platform: "win32", env: { LOCALAPPDATA: "C:\\Users\\A\\AppData\\Local" } }),

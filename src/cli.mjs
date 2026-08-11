@@ -156,7 +156,8 @@ async function refresh() {
   const result = syncOpenCodeConfig(registry, config);
   const agents = syncInstalledAgentConfigs(registry, config);
   restartBackgroundService();
-  console.log(`Cursor catalog refreshed: ${registry.models.length} models, ${variantCount(registry)} variants${result.changed ? " (updated)" : " (unchanged)"}.`);
+  const changed = result.changed || agents.some((agent) => agent.changed);
+  console.log(`Cursor catalog refreshed: ${registry.models.length} models, ${variantCount(registry)} variants${changed ? " (updated)" : " (unchanged)"}.`);
   reportAgentConfigs(agents);
   console.log("The bridge was restarted. Reload your client's model picker if it is already open.");
 }

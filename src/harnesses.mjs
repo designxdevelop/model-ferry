@@ -88,6 +88,10 @@ function resolveMarker(marker, { home, env, platform }) {
   if (marker === ".claude" && env.CLAUDE_CONFIG_DIR?.trim()) return env.CLAUDE_CONFIG_DIR.trim();
   if (marker === ".hermes" && env.HERMES_HOME?.trim()) return env.HERMES_HOME.trim();
   if (platform === "win32" && marker.startsWith(".config/")) {
+    // OpenCode uses %USERPROFILE%\.config\opencode (same as openCodeConfigPath), not %APPDATA%.
+    if (marker === ".config/opencode") {
+      return path.win32.join(home, ...marker.split("/"));
+    }
     const appData = env.APPDATA?.trim() || path.win32.join(home, "AppData", "Roaming");
     return path.win32.join(appData, ...marker.slice(".config/".length).split("/"));
   }
