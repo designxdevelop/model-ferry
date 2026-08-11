@@ -2,25 +2,25 @@
 const steps = [
   {
     n: "01",
-    title: "Install",
-    body: "One command on macOS/Linux (install.sh) or Windows (install.ps1), or a manual clone plus npm install and npm run setup. The bridge installs a background service and adds a cursorapi provider to OpenCode. Your default model stays untouched."
+    title: "Find your agents",
+    body: "One command installs the bridge and scans more than 40 known harnesses. OpenCode, Pi, and Hermes are configured without switching their current models."
   },
   {
     n: "02",
     title: "Sign in",
-    body: "A browser opens to Cursor. Complete the sign-in and Model Ferry mints a 90-day API key that renews automatically before it expires. Set CURSOR_API_KEY to skip the browser."
+    body: "A browser opens to Cursor. Complete the sign-in and the Cursor SDK stores a 90-day API key locally. Model Ferry attempts renewal before expiry. Set CURSOR_API_KEY to skip the browser."
   },
   {
     n: "03",
-    title: "Pick Cursor in OpenCode",
-    body: "Choose the Cursor provider, select any model, and use the variant picker to switch between thinking, effort, and fast presets."
+    title: "Choose your interface",
+    body: "Use native variants in OpenCode, model@variant entries in Pi or Hermes, or connect another compatible agent to the same local endpoint."
   }
 ];
 ---
 <section class="section" id="how">
   <div class="container">
     <span class="kicker">How it works</span>
-    <h2 class="heading">Up and running in three steps.</h2>
+    <h2 class="heading">From your Cursor account to your agent.</h2>
     <div class="steps">
       {steps.map((step) => (
         <div class="step">

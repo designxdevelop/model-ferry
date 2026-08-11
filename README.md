@@ -1,11 +1,61 @@
 # Model Ferry
 
-Model Ferry is a persistent, loopback-only OpenAI-compatible adapter from OpenCode to Cursor's public Agent SDK. It discovers every model and parameter combination available to the configured Cursor API key and presents them as models and native variants in OpenCode.
+Model Ferry makes the models and presets available to your Cursor account usable across your local agent stack. OpenCode gets native variants, Pi and Hermes Agent configure automatically when installed, and any same-machine client with a custom OpenAI Chat Completions provider can connect to the same loopback-only bridge.
 
-It fixes two behaviors of API for Cursor:
+It adds three things on top of the Cursor Agent SDK:
 
 - The bridge starts at login through `launchd` on macOS, a systemd user service on Linux, or Windows Task Scheduler on Windows 10 and 11. Authentication uses the Cursor SDK's stored browser login, or `CURSOR_API_KEY` when set.
-- Its installer adds the `cursorapi` provider and synchronizes the authenticated Cursor model catalog without creating or changing OpenCode's top-level `model` setting.
+- Its installer scans PATH and well-known config homes for 40+ local agent harnesses. It adds a Model Ferry provider to supported agents it finds without changing any selected or default model.
+- Its local OpenAI-compatible API lets additional clients connect manually while keeping shell commands, file edits, and other function tools in the originating client.
+
+## Client compatibility
+
+| Client | Setup | Provider name | Cursor presets |
+| --- | --- | --- | --- |
+| OpenCode 1.x / 2.0 | Automatic | **Cursor** | Native variants |
+| Pi | Automatic when installed | **Model Ferry** (`modelferry`) | `model@variant` entries |
+| Hermes Agent | Automatic when installed | **Model Ferry** (`modelferry`) | `model@variant` entries |
+| Other local OpenAI-compatible clients | Manual | Your choice | Base models or `model@variant` |
+
+Automatic setup means Model Ferry owns only its provider entry. Existing providers, settings, and default-model selections are preserved. Run `modelferry agents` to scan PATH and well-known config directories and see what is installed. The result distinguishes **automatic setup** from **detected only**; detection alone does not imply that a harness supports custom OpenAI providers or that Model Ferry edits its config.
+
+```text
+$ modelferry agents
+Detected 6 local agent harnesses:
+  OpenCode     automatic setup
+  Pi           automatic setup
+  Claude Code  detected only
+  Codex        detected only
+  Cursor       detected only
+  Gemini CLI   detected only
+```
+
+The discovery registry includes more than 40 common coding agents and harnesses, with both binary and config-directory markers. If you install Pi or Hermes after Model Ferry, run `modelferry refresh` to detect and configure it. Use `modelferry agents --json` when another installer or script needs the scan results.
+
+### Connect another local client manually
+
+Use these custom-provider settings:
+
+| Setting | Value |
+| --- | --- |
+| API format | OpenAI Chat Completions |
+| Base URL | `http://127.0.0.1:<port>/v1` |
+| API key | `localToken` from `~/.config/modelferry/config.json` |
+| Model | Any ID from `modelferry models` |
+
+A typical client-side provider entry looks like this (field names vary by client):
+
+```json
+{
+  "baseURL": "http://127.0.0.1:8791/v1",
+  "apiKey": "<localToken>",
+  "api": "openai-completions"
+}
+```
+
+Run `modelferry status` to confirm the resolved port. The default is `8791`; Model Ferry selects a nearby free port when necessary and updates automatically managed clients. Standard OpenAI function tools are supported and returned to the originating client for execution.
+
+The API is intentionally loopback-only. A client running on another machine—or in a container without access to the host loopback interface—cannot connect directly.
 
 ## Install
 
@@ -38,8 +88,12 @@ The setup command creates:
 - Linux: `~/.config/systemd/user/ai.dxd.modelferry.service`
 - Windows: a per-user **Model Ferry** Task Scheduler task (logon trigger + keepalive wrapper)
 - a `cursorapi` provider in `~/.config/opencode/opencode.json` (V1 `provider.cursorapi` and OpenCode 2.0 `providers.cursorapi`)
+- a `modelferry` provider in `~/.pi/agent/models.json` when Pi is installed
+- a `modelferry` provider in `~/.hermes/config.yaml` when Hermes Agent is installed (`%LOCALAPPDATA%\hermes\config.yaml` on native Windows)
 
-It backs up the OpenCode config before changing it and preserves the existing default model exactly.
+It backs up existing client configs before changing them and preserves every existing default model exactly. `modelferry refresh` keeps each automatically managed client synchronized and rescans for Pi and Hermes. `modelferry uninstall` removes only Model Ferry's provider entries.
+
+Setup prints every automatically configured client plus every other recognized harness it detects. Other clients use the manual connection settings above only when they support a custom OpenAI Chat Completions provider.
 
 ## Authentication
 
@@ -70,11 +124,18 @@ Browser-login keys expire after 90 days. The bridge automatically re-runs the br
 
 ## Ports
 
-The bridge listens on `127.0.0.1:8791` by default. If that port is already in use, it scans the next 19 ports and binds the first free one, then records the resolved port in `~/.config/modelferry/config.json` so the OpenCode provider `baseURL`, the onboarding page, and the CLI commands all agree on it.
+The bridge listens on `127.0.0.1:8791` by default. If that port is already in use, it scans the next 19 ports and binds the first free one, then records the resolved port in `~/.config/modelferry/config.json` so automatically configured providers, the onboarding page, and the CLI commands all agree on it.
 
 ## Use
 
-Start OpenCode normally, choose the **Cursor** provider, then select any available model. OpenCode's variant selector (or `ctrl+t`) switches between the exact thinking, reasoning, effort, context, and fast combinations advertised by Cursor.
+Start your agent normally, then choose its Model Ferry provider:
+
+- **OpenCode:** choose **Cursor**, then select a model. OpenCode's variant selector (or `ctrl+t`) switches between the exact thinking, reasoning, effort, context, and fast combinations advertised by Cursor.
+- **Pi:** choose **Model Ferry** from `/model`. Presets appear as deterministic `model@variant` entries, such as `gpt-5.6-sol@1m-high-standard`.
+- **Hermes Agent:** choose **Model Ferry** from `/model` or `hermes model`. Presets use the same `model@variant` identifiers.
+- **Other clients:** choose the custom provider you created, then select a base model or enter a `model@variant` identifier.
+
+The installer only adds providers; it never switches the model currently selected by any client.
 
 From the CLI, pass a native variant preset with `--variant`:
 
@@ -86,28 +147,29 @@ Variant names are generated from Cursor's canonical parameters. Only combination
 
 ## Catalog refresh
 
-The bridge refreshes Cursor's catalog at startup and every six hours. It updates only the bridge-owned `cursorapi` entries in OpenCode's config (`provider.cursorapi` for V1 and `providers.cursorapi` for OpenCode 2.0) and preserves the rest of the file. The last successful catalog is cached at `~/.config/modelferry/catalog.json`, so temporary Cursor API failures do not make existing models unavailable.
+The bridge refreshes Cursor's catalog at startup and every six hours. It updates only its bridge-owned provider entries in OpenCode, Pi, and Hermes and preserves the rest of each file. The last successful catalog is cached at `~/.config/modelferry/catalog.json`, so temporary Cursor API failures do not make existing models unavailable.
 
 ```sh
 npm run models   # list cached models and native variants
-npm run refresh  # refresh immediately and synchronize OpenCode
+npm run agents   # rescan installed agent harnesses and show setup status
+npm run refresh  # refresh immediately and synchronize configured clients
 npm run status
 npm test
 ```
 
-OpenCode may need to be restarted or its configuration reloaded before newly added models appear in an already-running picker.
+An already-running client may need its model picker reloaded before newly added models appear.
 
-For clients without native variant support, the bridge also understands deterministic `model@variant` identifiers. Set `"exposeVariantAliases": true` in `~/.config/modelferry/config.json` and run `npm run refresh` to add those aliases to OpenCode's model picker. This is disabled by default because it can add hundreds of entries.
+For clients without native variant support, the bridge understands deterministic `model@variant` identifiers. Pi and Hermes receive these aliases automatically. To also add them to OpenCode's model picker, set `"exposeVariantAliases": true` in `~/.config/modelferry/config.json` and run `npm run refresh`. This is disabled for OpenCode by default because it can add hundreds of entries.
 
 ### System prompts
 
-Cursor's agent applies its own system prompt on every run, so the bridge excludes the outer client's system message by default to avoid sending the model two competing system prompts. The `<available_skills>` block and any `Instructions from:` project guidance (AGENTS.md) from the outer client are preserved so OpenCode skills and project rules stay visible to the Cursor agent. To send the full outer system message through instead, set `"stripSystemPrompt": false` in `~/.config/modelferry/config.json`. The setup page at `http://127.0.0.1:8791/onboard` exposes this as a toggle, so you can flip it without editing the config file.
+Cursor's agent applies its own system prompt on every run, so the bridge excludes the outer client's system message by default to avoid sending the model two competing prompts. Recognized `<available_skills>` blocks and `Instructions from:` project guidance (including AGENTS.md) are preserved. To send the full outer system message through instead, set `"stripSystemPrompt": false` in `~/.config/modelferry/config.json`. The setup page at `http://127.0.0.1:8791/onboard` exposes this as a toggle, so you can flip it without editing the config file.
 
 ### Cache-friendly turns
 
-OpenCode agentic loops (user → tools → answer) stay on **one** Cursor Agent run. When the model calls an OpenCode tool, Ferry returns `tool_calls` to OpenCode but keeps the Cursor run alive and blocks the MCP call until OpenCode posts the tool result on the next `/v1/chat/completions` request. That avoids re-seeding the full transcript on every tool hop.
+Agentic loops (user → tools → answer) stay on **one** Cursor Agent run. When the model calls a client tool, Ferry returns `tool_calls` to the originating client but keeps the Cursor run alive until that client posts the tool result on the next `/v1/chat/completions` request. That avoids re-seeding the full transcript on every tool hop.
 
-Sticky session routing uses OpenCode 2.0 cache-affinity headers when present:
+Sticky session routing uses standard and OpenCode cache-affinity signals when present:
 
 - `X-Session-Id` / `x-session-id`
 - `x-session-affinity`
@@ -122,11 +184,11 @@ On startup Ferry probes whether local `Agent.send()` retains conversation across
 
 Model Ferry stores no Cursor credentials of its own. The Cursor SDK persists the browser login's minted API key to `~/.cursor/sdk/auth.json`, readable only by your user.
 
-The HTTP API binds to `127.0.0.1` by default. First setup mints a random bearer token into `~/.config/modelferry/config.json` and writes it into OpenCode's `cursorapi` provider as `apiKey`. Chat, models, catalog refresh, and setup-page login, logout, and config routes all require that token. Cursor agents created by the bridge are limited to MCP tools (`tools: ["mcp"]`), so OpenCode keeps ownership of shell and file actions.
+The HTTP API binds to `127.0.0.1` by default. First setup mints a random bearer token into `~/.config/modelferry/config.json` and writes it into each configured client's Model Ferry provider. Chat, models, catalog refresh, and setup-page login, logout, and config routes all require that token. Cursor agents created by the bridge are limited to MCP tools (`tools: ["mcp"]`), so the originating client keeps ownership of shell and file actions.
 
 ## Scope
 
-The bridge implements `/health`, `/v1/models`, `/v1/catalog/refresh`, and streaming/non-streaming `/v1/chat/completions`. OpenCode function tools are exposed to Cursor agents through a temporary MCP server and returned to OpenCode for execution.
+The bridge implements `/health`, `/v1/models`, `/v1/catalog/refresh`, and streaming/non-streaming `/v1/chat/completions`. Client function tools are exposed to Cursor agents through a temporary MCP server and returned to the originating client for execution.
 
 The catalog reflects models available to the Cursor API key. Cursor subscription limits, model eligibility, and usage accounting still apply.
 

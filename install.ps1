@@ -67,6 +67,7 @@ if (-not (($env:Path -split ";") -contains $binDir)) {
   Say "Add $binDir to your User PATH to use modelferry from a new terminal."
 }
 
+Say "Scanning installed agent harnesses; OpenCode, Pi, and Hermes have automatic provider setup"
 Say "Running setup with Windows Task Scheduler - a browser window may open for Cursor sign-in"
 Push-Location $installDir
 try {
@@ -76,6 +77,7 @@ try {
 
 Write-Host ""
 Write-Host "modelferry: installed. Next steps:"
-Write-Host "  1. Start or reload OpenCode."
-Write-Host "  2. Pick the Cursor provider, then choose a model and a variant."
-Write-Host "  3. Run modelferry status (or cd $installDir; npm run status) to check auth and bridge health."
+Write-Host "  1. Review the configured and detected harness list printed by setup above."
+Write-Host "  2. Pick Cursor in OpenCode or Model Ferry in Pi/Hermes, then choose a model and variant."
+Write-Host "  3. For another local OpenAI-compatible client, follow the manual connection instructions in $installDir\README.md."
+Write-Host "  4. Run modelferry agents to rescan, or modelferry status to check bridge health."

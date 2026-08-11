@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "A persistent OpenAI-compatible bridge that ferries Cursor's model catalog into OpenCode.",
+  "description": "Use your Cursor model catalog across OpenCode and other local AI agents.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/designxdevelop/model-ferry.git"
@@ -21,12 +21,14 @@
     "status": "node src/cli.mjs status",
     "refresh": "node src/cli.mjs refresh",
     "models": "node src/cli.mjs models",
+    "agents": "node src/cli.mjs agents",
     "uninstall": "node src/cli.mjs uninstall",
     "probe:retention": "node scripts/probe-retention.mjs",
     "test": "node --test"
   },
   "dependencies": {
-    "@cursor/sdk": "^1.0.27"
+    "@cursor/sdk": "^1.0.27",
+    "yaml": "^2.9.0"
   },
   "overrides": {
     "undici": "6.27.0"

@@ -62,7 +62,7 @@ const onboardingPageTemplate = `<!doctype html>
       <path d="M8 8v3m4-3v3m4-3v3" stroke="#8a8a92" stroke-width="1.4" stroke-linecap="round"/>
     </svg>
     <span class="name">Model Ferry</span>
-    <span class="tag">Cursor &rarr; OpenCode</span>
+    <span class="tag">Cursor &rarr; your local agents</span>
   </div>
   <div class="card">
     <div class="status" id="status">Checking&hellip;</div>
@@ -75,7 +75,7 @@ const onboardingPageTemplate = `<!doctype html>
     <label class="row">
       <span class="row-text">
         <span class="row-title">Strip the outer client&rsquo;s system prompt</span>
-        <span class="row-note">Cursor agents already carry their own system prompt, so the outer client&rsquo;s system message is left out to avoid two competing prompts. OpenCode skills and <code>AGENTS.md</code> guidance are still forwarded to the model.</span>
+        <span class="row-note">Cursor agents already carry their own system prompt, so the outer client&rsquo;s system message is left out to avoid two competing prompts. Recognized skills and <code>AGENTS.md</code> guidance are still forwarded to the model.</span>
       </span>
       <input type="checkbox" id="stripSystemPrompt" />
     </label>
@@ -85,7 +85,7 @@ const onboardingPageTemplate = `<!doctype html>
     <span class="sep">&middot;</span>
     <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">GitHub</a>
   </div>
-  <div class="legalese">Cursor, OpenCode, and all other trademarks are the property of their respective owners. Model Ferry is not affiliated with, sponsored, or endorsed by Anysphere, Inc. (Cursor) or Anomaly (OpenCode). All rights reserved.</div>
+  <div class="legalese">Cursor, OpenCode, Pi, Hermes, and all other trademarks are the property of their respective owners. Model Ferry is an independent project and is not affiliated with, sponsored, or endorsed by those projects or their owners. All rights reserved.</div>
 </div>
 <script>
   const statusEl = document.getElementById("status");
@@ -125,12 +125,12 @@ const onboardingPageTemplate = `<!doctype html>
       signinBtn.hidden = true;
       logoutBtn.hidden = false;
       metaEl.innerHTML = state.ready
-        ? "<b>" + (state.catalog && state.catalog.models) + "</b> models ready. Open OpenCode and select the <b>Cursor</b> provider."
+        ? "<b>" + (state.catalog && state.catalog.models) + "</b> models ready. Select <b>Cursor</b> in OpenCode or <b>Model Ferry</b> in Pi and Hermes."
         : "Signed in. Fetching the model catalog&hellip;";
     } else {
       setStatus(renewing
         ? '<span class="dot"></span><div class="label">Waiting for sign-in</div>Complete the login in the tab that just opened. This page updates automatically.'
-        : '<span class="dot"></span><div class="label">Not signed in</div>Sign in to bring Cursor models into OpenCode.', false);
+        : '<span class="dot"></span><div class="label">Not signed in</div>Sign in to make your Cursor models available to local agents.', false);
       signinBtn.hidden = renewing;
       logoutBtn.hidden = true;
       metaEl.innerHTML = "Sign-in happens on Cursor&rsquo;s website. Your key appears as <b>Model Ferry</b> in the Cursor dashboard.";
@@ -174,4 +174,3 @@ const onboardingPageTemplate = `<!doctype html>
 </body>
 </html>
 `;
-
