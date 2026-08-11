@@ -14,7 +14,7 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
 <section class="section" id="install">
   <div class="container">
     <span class="kicker">Install</span>
-    <h2 class="heading">One command to your first run.</h2>
+    <h2 class="heading">Install once. Use it across agents.</h2>
     <p class="platforms">
       Supported on <strong>macOS</strong>, <strong>Linux</strong>, and <strong>Windows</strong> —
       <code>install.sh</code> on macOS and Linux, <code>install.ps1</code> on Windows.
@@ -30,9 +30,9 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
 <span id="windows-install">{windows}</span></pre>
     </div>
     <p class="note">
-      Clones the repo to <code>~/.modelferry</code>, installs dependencies, and runs setup. Setup signs you in with
-      Cursor, installs a login service (<code>launchd</code>, systemd, or Task Scheduler), and adds the
-      <code>cursorapi</code> provider to OpenCode. Your default model stays untouched.
+      Clones Model Ferry to <code>~/.modelferry</code>, signs in to Cursor, installs a login service, and scans your
+      local agent stack. OpenCode, Pi, and Hermes receive managed providers; other recognized harnesses are reported
+      without being modified. Existing default models stay untouched.
     </p>
 
     <div class="callout">
@@ -40,6 +40,25 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
       Every request runs through your own Cursor account. Your Cursor usage limits, model eligibility, and
       account terms apply exactly as they would in the Cursor app.
     </div>
+
+    <div class="client-setup">
+      <div>
+        <strong>OpenCode</strong>
+        <span>Configured automatically as the <code>Cursor</code> provider with native variants.</span>
+      </div>
+      <div>
+        <strong>Pi and Hermes</strong>
+        <span>Configured automatically when detected, with presets exposed as <code>model@variant</code>.</span>
+      </div>
+      <div>
+        <strong>40+ recognized harnesses</strong>
+        <span>Setup scans binaries and config homes. Run <code>modelferry agents --json</code> to use the results from another script.</span>
+      </div>
+    </div>
+    <p class="note compact">
+      Install an agent later? Run <code>modelferry agents</code> to rescan, or <code>modelferry refresh</code> to configure a newly installed Pi or Hermes.
+      No existing default model is changed.
+    </p>
 
     <h3 class="subheading">Manual setup</h3>
     <div class="cols">
@@ -49,12 +68,12 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
 <span id="manual-install">{manual}</span></pre>
       </div>
       <div class="code">
-        <div class="bar">usage</div>
+        <div class="bar">OpenCode example</div>
         <pre>{usage}</pre>
       </div>
     </div>
     <p class="note">
-      Works on macOS, Linux, and Windows 10/11 with the Cursor Agent SDK and the standard OpenAI-compatible chat API.
+      Works on macOS, Linux, and Windows 10/11. OpenCode has native variant support; other clients use managed integrations or the standard OpenAI-compatible chat API.
       <a href="https://github.com/designxdevelop/model-ferry" target="_blank" rel="noopener">Read the README</a> for the full CLI and catalog-refresh commands.
     </p>
   </div>
@@ -71,12 +90,20 @@ const usage = `opencode run -m cursorapi/composer-2.5 \\
   .code.quick { margin-bottom: 12px; }
   .callout { margin: 24px 0 0; padding: 16px 20px; border: 1px solid rgba(47, 129, 247, 0.3); border-left: 3px solid var(--accent); border-radius: 12px; background: var(--accent-soft); font-size: 14px; color: var(--muted); line-height: 1.6; }
   .callout-title { display: block; font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 4px; }
+  .client-setup { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+  .client-setup div { padding: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+  .client-setup strong { display: block; margin-bottom: 6px; font-size: 14px; }
+  .client-setup span { display: block; color: var(--muted); font-size: 13px; line-height: 1.55; }
+  .client-setup code { color: var(--text); font-size: 12px; }
+  .client-setup a { color: var(--accent); text-decoration: none; }
+  .client-setup a:hover { text-decoration: underline; }
   .code .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
   .code pre { margin: 0; padding: 18px 20px; font-size: 13px; line-height: 1.8; color: #d7d7db; white-space: pre-wrap; }
   .code .cmt { color: var(--faint); }
   .note { margin-top: 20px; color: var(--muted); font-size: 14px; }
+  .note.compact { margin-top: 12px; }
   .note code { font-size: 13px; color: var(--text); }
   .note a { color: var(--accent); text-decoration: none; }
   .note a:hover { text-decoration: underline; }
-  @media (max-width: 860px) { .cols { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) { .cols, .client-setup { grid-template-columns: 1fr; } }
 </style>

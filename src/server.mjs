@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { authStatus, login as renewLogin, needsRenewal } from "./auth.mjs";
 import { ensureConfig, updateConfig } from "./config.mjs";
 import { buildRegistry, catalogSummary, fetchCatalog, loadCatalog, providerModels, resolveSelection, syncOpenCodeConfig } from "./catalog.mjs";
+import { syncInstalledAgentConfigs } from "./clients.mjs";
 import { renderOnboardingPage } from "./onboard.mjs";
 import {
   completionEnvelope,
@@ -60,6 +61,7 @@ try {
   catalogState = await loadCatalog();
   registry = buildRegistry(catalogState.catalog);
   syncOpenCodeConfig(registry, config);
+  reportAgentConfigErrors(syncInstalledAgentConfigs(registry, config));
   lastRefreshError = catalogState.error || null;
 } catch (error) {
   lastRefreshError = error.message;
@@ -437,13 +439,21 @@ async function performCatalogRefresh() {
     const nextRegistry = buildRegistry(nextState.catalog);
     const catalogChanged = JSON.stringify(catalogState?.catalog) !== JSON.stringify(nextState.catalog);
     const configResult = syncOpenCodeConfig(nextRegistry, config);
+    const agentResults = syncInstalledAgentConfigs(nextRegistry, config);
+    reportAgentConfigErrors(agentResults);
     catalogState = nextState;
     registry = nextRegistry;
     lastRefreshError = null;
-    return { changed: catalogChanged || configResult.changed };
+    return { changed: catalogChanged || configResult.changed || agentResults.some((result) => result.changed) };
   } catch (error) {
     lastRefreshError = error.message;
     throw error;
+  }
+}
+
+function reportAgentConfigErrors(results) {
+  for (const result of results) {
+    if (result.error) console.error(`Could not update ${result.client}: ${result.error}`);
   }
 }
 

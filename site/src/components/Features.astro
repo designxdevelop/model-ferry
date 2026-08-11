@@ -1,36 +1,36 @@
 ---
 const features = [
   {
-    title: "Full catalog sync",
-    body: "Every model and parameter combination available to your Cursor account, discovered through the Cursor Agent SDK and refreshed on a schedule."
+    title: "One catalog across agents",
+    body: "Discover the models available to your Cursor account once, then use the same catalog from each connected local agent."
   },
   {
-    title: "Native variants",
-    body: "Cursor's exact thinking, reasoning, effort, context, and fast presets appear as OpenCode variants, switchable from the picker or --variant."
+    title: "OpenCode, fully integrated",
+    body: "Cursor's exact thinking, reasoning, effort, context, and fast presets appear as native variants directly in OpenCode's model picker."
   },
   {
-    title: "Zero-credential setup",
-    body: "A one-time browser sign-in mints a 90-day key. The bridge renews it automatically before it lapses, so you never handle API keys."
+    title: "Your stack, discovered",
+    body: "Model Ferry scans PATH and known config homes for more than 40 agent harnesses, then shows what it found and what it can configure."
   },
   {
-    title: "Background service",
-    body: "Starts at login through launchd on macOS, systemd on Linux, or Task Scheduler on Windows 10/11, so the bridge is ready after a restart."
+    title: "A standard way in",
+    body: "Pi and Hermes configure automatically. Other same-machine clients can use the local OpenAI Chat Completions URL and token when they support custom providers."
   },
   {
-    title: "Loopback only",
-    body: "Binds to 127.0.0.1 with a per-install bearer token minted on setup. Auth and config routes require that token. Nothing else on your network can reach the bridge."
+    title: "Local by default",
+    body: "The bridge binds to 127.0.0.1 and protects every route with a unique install token. Nothing else on your network can reach it."
   },
   {
-    title: "OpenCode owns tools",
-    body: "Cursor agents get MCP only. Shell, edit, and other Cursor built-ins stay off. OpenCode function tools run in OpenCode, not in the Cursor agent."
+    title: "Your agent owns tools",
+    body: "Function tools return to the originating client for execution. Shell, edit, and other Cursor built-ins stay off."
   }
 ];
 ---
 <section class="section" id="features">
   <div class="container">
     <span class="kicker">Features</span>
-    <h2 class="heading">Cursor's catalog, native in OpenCode.</h2>
-    <p class="sub">Point it at your Cursor account. Models and variants show up in the picker.</p>
+    <h2 class="heading">Switch agents, not model access.</h2>
+    <p class="sub">Model Ferry separates the Cursor models available to you from the local agent interface you choose to use.</p>
     <div class="grid">
       {features.map((feature) => (
         <div class="card">

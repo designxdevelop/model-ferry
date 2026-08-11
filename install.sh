@@ -4,7 +4,7 @@
 #   Local:          bash install.sh
 # Clones the repo into $MODELFERRY_DIR (default ~/.modelferry), installs
 # dependencies, and runs setup (signs in with Cursor, installs the background
-# service, and syncs the Cursor catalog into OpenCode). For Windows, use
+# service, and syncs the Cursor catalog into supported installed agents). For Windows, use
 # install.ps1 from PowerShell.
 
 set -euo pipefail
@@ -77,13 +77,15 @@ case ":$PATH:" in
     ;;
 esac
 
+say "Scanning installed agent harnesses; OpenCode, Pi, and Hermes have automatic provider setup"
 say "Running setup with $SERVICE_MANAGER — a browser window may open for Cursor sign-in"
 (cd "$INSTALL_DIR" && npm run setup)
 
 cat <<EOF
 
 modelferry: installed. Next steps:
-  1. Start or reload OpenCode.
-  2. Pick the Cursor provider, then choose a model and a variant.
-  3. Run \`modelferry status\` (or \`cd $INSTALL_DIR && npm run status\`) to check auth and bridge health.
+  1. Review the configured and detected harness list printed by setup above.
+  2. Pick Cursor in OpenCode or Model Ferry in Pi/Hermes, then choose a model and variant.
+  3. For another local OpenAI-compatible client, follow the manual connection instructions in $INSTALL_DIR/README.md.
+  4. Run \`modelferry agents\` to rescan, or \`modelferry status\` to check bridge health.
 EOF
