@@ -56,6 +56,8 @@ npm run logout   # clear the stored browser login
 npm run status   # shows auth state and bridge health
 ```
 
+On headless or remote machines where a browser can't be opened automatically, `login` prints the Cursor sign-in URL to the terminal — open it in any browser (even on another device) and approve, and the bridge picks it up and mints the key.
+
 The bridge runs as a background service, which does not inherit shell environment variables. A stored browser login works there out of the box. To use `CURSOR_API_KEY`, set it for the service manager too:
 
 - macOS: `launchctl setenv CURSOR_API_KEY <key>`
