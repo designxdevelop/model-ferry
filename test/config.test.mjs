@@ -28,3 +28,13 @@ test("workingDirectory falls back through known headers", () => {
   });
   assert.equal(cwd, "/repo");
 });
+
+test("workingDirectory uses OpenCode's system-context directory before the service cwd", () => {
+  const cwd = workingDirectory({ headers: {} }, {
+    messages: [{
+      role: "system",
+      content: "<env>\n  Working directory: /home/austin/code/dxd/project\n</env>"
+    }]
+  });
+  assert.equal(cwd, "/home/austin/code/dxd/project");
+});

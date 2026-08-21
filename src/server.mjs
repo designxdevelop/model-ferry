@@ -210,7 +210,7 @@ async function chatCompletion(request, response, body) {
   const selection = resolveSelection(registry, model, body);
   if (!selection) throw httpError(400, `Unsupported model or variant: ${model}`, "unsupported_model");
   const tools = parseTools(body);
-  const cwd = workingDirectory(request);
+  const cwd = workingDirectory(request, body);
   const parentSession = requestParentSessionKey(request);
   const sessionKey = `${requestSessionKey(request, body)}\0${JSON.stringify(selection)}\0${cwd}`;
   const session = await getSession(sessionKey, selection, cwd, parentSession);

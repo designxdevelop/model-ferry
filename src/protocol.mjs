@@ -48,15 +48,26 @@ export function conversationStemKey(messages = []) {
   return crypto.createHash("sha256").update(JSON.stringify(stem)).digest("hex").slice(0, 24);
 }
 
-export function workingDirectory(request) {
+export function workingDirectory(request, body = {}) {
   const value = [
     request.headers["x-opencode-directory"],
     request.headers["x-working-directory"],
     request.headers["x-workspace-path"],
     request.headers["x-project-path"],
+    systemWorkingDirectory(body.messages),
     process.cwd()
   ].find((item) => typeof item === "string" && item.trim());
   return decodeDirectoryHeader(value.trim());
+}
+
+function systemWorkingDirectory(messages) {
+  if (!Array.isArray(messages)) return null;
+  for (const message of messages) {
+    if (message?.role !== "system" || typeof message.content !== "string") continue;
+    const match = message.content.match(/<env>[\s\S]*?^\s*Working directory:\s*(.+?)\s*$/m);
+    if (match?.[1]) return match[1];
+  }
+  return null;
 }
 
 function decodeDirectoryHeader(value) {
