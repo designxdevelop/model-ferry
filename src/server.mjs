@@ -222,10 +222,10 @@ async function chatCompletion(request, response, body) {
     const results = latestToolResults(messages);
     const payload = contentForPendingTool(session.pending.openAiCall, results);
     if (!payload) throw httpError(400, "Missing tool result for in-flight Cursor run", "missing_tool_result");
-    const captureId = session.pending.captureId;
     session.pending.slot.resolveResult(payload);
     session.pending = null;
-    captures.delete(captureId);
+    // MCP may post its wait after the client result arrives. Keep the resolved
+    // slot reachable until the run finishes so that request can receive it.
     touchSession(sessionKey, session);
     return respondFromPump(response, body, session, model, timeout);
   }
@@ -244,7 +244,7 @@ async function chatCompletion(request, response, body) {
     : renderSeedPrompt(messages, tools, { stripSystemPrompt: config.stripSystemPrompt });
 
   const captureId = crypto.randomUUID();
-  const slot = createPendingToolSlot();
+  const slot = createPendingToolSlot({ onCapture: () => session.pump?.wake() });
   const openAiCall = openAiToolCall({ name: "__pending__", arguments: {} });
   // openAiCall.id reserved; real name/args filled on capture.
   captures.set(captureId, { slot, openAiCall });

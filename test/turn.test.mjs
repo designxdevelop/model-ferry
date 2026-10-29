@@ -98,3 +98,44 @@ test("cursorRunError falls back to a generic message when the SDK provides nothi
   assert.equal(error.code, "cursor_run_failed");
   assert.equal(error.message, "Cursor SDK run failed");
 });
+
+test("tool result continuation waits for the live pump instead of replaying the call", async () => {
+  const slot = createPendingToolSlot();
+  const call = { name: "read_marker", arguments: {}, id: "call_marker" };
+  async function* stream() {
+    yield { type: "assistant", message: { content: [] } };
+    const result = await slot.waitForResult();
+    yield { type: "assistant", message: { content: [{ type: "text", text: result.content }] } };
+  }
+  const pump = createRunPump({ stream, wait: async () => ({ status: "finished" }) });
+  slot.capture(call);
+  assert.equal((await waitForToolOrDone(pump, () => slot.captured)).kind, "tool");
+  slot.resolveResult({ content: "FERRY_BOUNDED_TOOL_OK", isError: false });
+  const outcome = await waitForToolOrDone(pump, () => slot.captured, { signal: AbortSignal.timeout(1000) });
+  assert.equal(outcome.kind, "done");
+  assert.equal(outcome.text, "FERRY_BOUNDED_TOOL_OK");
+});
+
+test("MCP capture wakes a response waiting on a silent SDK stream", async () => {
+  let finish;
+  const gate = new Promise((resolve) => { finish = resolve; });
+  async function* stream() { await gate; }
+  const pump = createRunPump({ stream, wait: async () => ({ status: "finished" }) });
+  const slot = createPendingToolSlot({ onCapture: () => pump.wake() });
+  const pending = waitForToolOrDone(pump, () => slot.captured, { signal: AbortSignal.timeout(1000) });
+  await new Promise((resolve) => setImmediate(resolve));
+  slot.capture({ name: "read_marker", arguments: {}, id: "call_marker" });
+  try {
+    const outcome = await pending;
+    assert.equal(outcome.kind, "tool");
+    assert.equal(outcome.tool.id, "call_marker");
+  } finally { finish(); }
+});
+
+test("MCP can wait for its result after the client has already supplied it", async () => {
+  const slot = createPendingToolSlot();
+  slot.capture({ name: "read_marker", arguments: {} });
+  slot.resolveResult({ content: "marker", isError: false });
+  assert.equal(slot.captured, null);
+  assert.deepEqual(await slot.waitForResult(), { content: "marker", isError: false });
+});

@@ -6,6 +6,7 @@
 export function createRunPump(run) {
   const state = {
     run,
+    wake() { push(state, { type: "wake" }); },
     queue: [],
     waiters: [],
     text: "",
@@ -99,7 +100,7 @@ export async function waitForToolOrDone(state, getCapturedTool, { signal } = {})
   }
 }
 
-export function createPendingToolSlot() {
+export function createPendingToolSlot({ onCapture = () => {} } = {}) {
   let captured = null;
   let resultResolve = null;
   let resultReject = null;
@@ -117,12 +118,16 @@ export function createPendingToolSlot() {
     capture(tool) {
       if (captured) return false;
       captured = tool;
+      onCapture();
       return true;
     },
     waitForResult() {
       return resultPromise;
     },
     resolveResult(payload) {
+      // The client has executed this call; continuation must wait for the run,
+      // rather than immediately returning the same captured tool again.
+      captured = null;
       resultResolve(payload);
     },
     rejectResult(error) {
