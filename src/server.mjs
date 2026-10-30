@@ -33,7 +33,7 @@ import {
 
 const config = ensureConfig();
 const sessions = new Map();
-/** @type {Map<string, { slot: ReturnType<typeof createPendingToolSlot>, openAiCall: object }>} */
+/** @type {Map<string, { slot: ReturnType<typeof createPendingToolSlot> }>} */
 const captures = new Map();
 const callbackToken = crypto.randomBytes(24).toString("hex");
 const forwarderPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "mcp-forwarder.mjs");
@@ -181,17 +181,19 @@ async function route(request, response) {
     const body = await readJson(request);
     const entry = captures.get(body.captureId);
     if (!entry) throw httpError(404, "Tool capture no longer active", "capture_expired");
-    const tool = { name: body.name, arguments: body.arguments || {}, id: entry.openAiCall.id };
-    entry.slot.capture(tool);
-    return json(response, 200, { ok: true });
+    const callId = openAiToolCall({ name: body.name, arguments: {} }).id;
+    const tool = { name: body.name, arguments: body.arguments || {}, id: callId };
+    if (!entry.slot.capture(tool)) throw httpError(409, "Another tool call is pending", "capture_conflict");
+    return json(response, 200, { ok: true, callId });
   }
   if (request.method === "POST" && url.pathname === "/internal/tool-wait") {
     if (bearer(request) !== callbackToken) throw httpError(401, "Invalid callback token", "unauthorized");
     const body = await readJson(request);
     const entry = captures.get(body.captureId);
     if (!entry) throw httpError(404, "Tool wait no longer active", "capture_expired");
+    if (typeof body.callId !== "string") throw httpError(400, "Missing tool call ID", "missing_call_id");
     try {
-      const payload = await entry.slot.waitForResult();
+      const payload = await entry.slot.waitForResult(body.callId);
       return json(response, 200, payload);
     } catch (error) {
       throw httpError(504, error.message || "Tool wait failed", "tool_wait_failed");
@@ -222,10 +224,10 @@ async function chatCompletion(request, response, body) {
     const results = latestToolResults(messages);
     const payload = contentForPendingTool(session.pending.openAiCall, results);
     if (!payload) throw httpError(400, "Missing tool result for in-flight Cursor run", "missing_tool_result");
-    const captureId = session.pending.captureId;
     session.pending.slot.resolveResult(payload);
     session.pending = null;
-    captures.delete(captureId);
+    // MCP may post its wait after the client result arrives. Keep the resolved
+    // slot reachable until the run finishes so that request can receive it.
     touchSession(sessionKey, session);
     return respondFromPump(response, body, session, model, timeout);
   }
@@ -244,10 +246,8 @@ async function chatCompletion(request, response, body) {
     : renderSeedPrompt(messages, tools, { stripSystemPrompt: config.stripSystemPrompt });
 
   const captureId = crypto.randomUUID();
-  const slot = createPendingToolSlot();
-  const openAiCall = openAiToolCall({ name: "__pending__", arguments: {} });
-  // openAiCall.id reserved; real name/args filled on capture.
-  captures.set(captureId, { slot, openAiCall });
+  const slot = createPendingToolSlot({ onCapture: () => session.pump?.wake() });
+  captures.set(captureId, { slot });
 
   const mcpServers = tools.length ? {
     client: {
@@ -280,27 +280,33 @@ async function chatCompletion(request, response, body) {
     session.toolFingerprint = fingerprint;
     session.captureId = captureId;
     session.slot = slot;
-    session.openAiCall = openAiCall;
     touchSession(sessionKey, session);
-    return respondFromPump(response, body, session, model, timeout, { captureId, slot, openAiCall });
+    return respondFromPump(response, body, session, model, timeout, { captureId, slot });
   } catch (error) {
     captures.delete(captureId);
+    slot.rejectResult(error);
     throw error;
   }
 }
 
 async function respondFromPump(response, body, session, model, timeout, bootstrap = null) {
+  clearTimeout(session.captureTimer);
   const captureId = bootstrap?.captureId || session.captureId;
   const slot = bootstrap?.slot || session.slot;
-  const openAiCallTemplate = bootstrap?.openAiCall || session.openAiCall;
 
   const getCaptured = () => slot?.captured || null;
-  const outcome = await waitForToolOrDone(session.pump, getCaptured, { signal: timeout });
+  let outcome;
+  try {
+    outcome = await waitForToolOrDone(session.pump, getCaptured, { signal: timeout });
+  } catch (error) {
+    await resetInFlight(session);
+    throw error;
+  }
 
   if (outcome.kind === "tool") {
     const tool = outcome.tool;
     const call = openAiToolCall({
-      id: openAiCallTemplate?.id,
+      id: tool.id,
       name: tool.name,
       arguments: tool.arguments
     });
@@ -312,8 +318,9 @@ async function respondFromPump(response, body, session, model, timeout, bootstra
       name: tool.name,
       arguments: tool.arguments
     };
-    captures.set(captureId, { slot, openAiCall: call });
     session.force = false;
+    session.captureTimer = setTimeout(() => { resetInFlight(session).catch(() => {}); }, config.requestTimeoutMs);
+    session.captureTimer.unref();
     if (body.stream === true) return streamToolResponse(response, model, call, session.activeRun?.id);
     return json(response, 200, completionEnvelope({
       id: `chatcmpl-${session.activeRun?.id || crypto.randomUUID()}`,
@@ -323,6 +330,7 @@ async function respondFromPump(response, body, session, model, timeout, bootstra
   }
 
   // Run finished — clear in-flight bookkeeping.
+  clearTimeout(session.captureTimer);
   captures.delete(captureId);
   session.pending = null;
   session.activeRun = null;
@@ -376,6 +384,9 @@ function streamTextResponse(response, model, text, id) {
 }
 
 async function resetInFlight(session) {
+  clearTimeout(session.captureTimer);
+  session.slot?.rejectResult(new Error("superseded by a new turn"));
+  captures.delete(session.captureId);
   if (session.pending?.slot) {
     try { session.pending.slot.rejectResult(new Error("superseded by a new turn")); } catch {}
     captures.delete(session.pending.captureId);
@@ -415,7 +426,6 @@ async function getSession(key, selection, cwd, parentSession = null) {
     pending: null,
     slot: null,
     captureId: null,
-    openAiCall: null,
     parentSession
   };
   sessions.set(key, session);
@@ -468,7 +478,7 @@ function evictSessions() {
     const [key, session] = sessions.entries().next().value;
     sessions.delete(key);
     try {
-      if (session.pending?.slot) session.pending.slot.rejectResult(new Error("session evicted"));
+      resetInFlight(session).catch(() => {});
       session.agent.close();
     } catch {}
   }

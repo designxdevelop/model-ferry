@@ -6,6 +6,7 @@
 export function createRunPump(run) {
   const state = {
     run,
+    wake() { push(state, { type: "wake" }); },
     queue: [],
     waiters: [],
     text: "",
@@ -99,34 +100,46 @@ export async function waitForToolOrDone(state, getCapturedTool, { signal } = {})
   }
 }
 
-export function createPendingToolSlot() {
+/** One outstanding capture, with call-specific results retained for late MCP waits. */
+export function createPendingToolSlot({ onCapture = () => {} } = {}) {
   let captured = null;
-  let resultResolve = null;
-  let resultReject = null;
-  const resultPromise = new Promise((resolve, reject) => {
-    resultResolve = resolve;
-    resultReject = reject;
-  });
-  // Avoid unhandled rejection if the slot is superseded before waiters attach.
-  resultPromise.catch(() => {});
+  let current;
+  const calls = new Map();
+  const fresh = () => {
+    let resolve, reject;
+    const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+    promise.catch(() => {});
+    return { promise, resolve, reject, settled: false };
+  };
+  current = fresh();
 
   return {
-    get captured() {
-      return captured;
-    },
+    get captured() { return captured; },
     capture(tool) {
       if (captured) return false;
+      // The run may issue another call before an earlier MCP waiter attaches.
+      if (current.settled) current = fresh();
       captured = tool;
+      calls.set(tool.id, current);
+      onCapture();
       return true;
     },
-    waitForResult() {
-      return resultPromise;
+    async waitForResult(id) {
+      const call = id === undefined ? current : calls.get(id);
+      if (!call) throw new Error("Tool call no longer active");
+      try { return await call.promise; }
+      finally { if (calls.get(id) === call) calls.delete(id); }
     },
     resolveResult(payload) {
-      resultResolve(payload);
+      captured = null;
+      current.settled = true;
+      current.resolve(payload);
     },
     rejectResult(error) {
-      resultReject(error);
+      current.reject(error);
+      for (const call of calls.values()) call.reject(error);
+      calls.clear();
+      captured = null;
     }
   };
 }
