@@ -35,14 +35,16 @@ rl.on("line", async (line) => {
       const captureResponse = await fetch(callbackUrl, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${callbackToken}` },
-        body: JSON.stringify({ captureId, name, arguments: args })
+        body: JSON.stringify({ captureId, name, arguments: args }),
+        signal: AbortSignal.timeout(waitTimeoutMs)
       });
       if (!captureResponse.ok) throw new Error(`callback returned ${captureResponse.status}`);
 
+      const { callId } = await captureResponse.json();
       const waitResponse = await fetch(waitUrl, {
         method: "POST",
         headers: { "content-type": "application/json", authorization: `Bearer ${callbackToken}` },
-        body: JSON.stringify({ captureId }),
+        body: JSON.stringify({ captureId, callId }),
         signal: AbortSignal.timeout(waitTimeoutMs)
       });
       if (!waitResponse.ok) throw new Error(`wait returned ${waitResponse.status}`);
